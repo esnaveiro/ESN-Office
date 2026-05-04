@@ -29,17 +29,6 @@ interface LocalVolunteer {
     confirmationType: ConfirmationType;
 }
 
-interface DatabaseVolunteer {
-    id: string;
-    name: string;
-    email: string;
-    position: string | null;
-    status: VolunteerStatus;
-    is_in_office: boolean;
-    last_seen: string | null;
-    created_at: string;
-}
-
 // interface Schedule {
 //     id: string;
 //     volunteer_id: string;
@@ -65,7 +54,7 @@ interface StackedAvatarTimelineProps {
 }
 
 export function StackedAvatarTimeline({
-                                          volunteers,
+                                          volunteers: _volunteers,
                                           maxAvatarsPerBucket = 3
                                       }: StackedAvatarTimelineProps) {
     const [selectedBucket, setSelectedBucket] = useState<HourBucket | null>(null);

@@ -100,23 +100,25 @@ export function LiveActivityFeed({ volunteers }: LiveActivityFeedProps) {
       </div>
       <div className="space-y-3 overflow-y-auto flex-1">
         {activities.length > 0 ? (
-          activities.map((activity) => (
-            <div
-              key={activity.id}
-              className="flex items-start gap-3 p-3 rounded-lg bg-muted"
-            >
-              <div className="w-2 h-2 rounded-full bg-primary mt-2 animate-pulse" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{activity.volunteerName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {activity.type === "check-in" ? "checked in" : "checked out"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {Math.floor((Date.now() - activity.timestamp.getTime()) / 60000)}m ago
-                </p>
+          activities.map((activity) => {
+            const minsAgo = Math.max(0, Math.floor((Date.now() - activity.timestamp.getTime()) / 60000))
+            const timeLabel = minsAgo < 1 ? 'Just now' : `${minsAgo}m ago`
+            return (
+              <div
+                key={activity.id}
+                className="flex items-start gap-3 p-3 rounded-lg bg-muted"
+              >
+                <div className="w-2 h-2 rounded-full bg-primary mt-2 animate-pulse" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{activity.volunteerName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {activity.type === "check-in" ? "checked in" : "checked out"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{timeLabel}</p>
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />

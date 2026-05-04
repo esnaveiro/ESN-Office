@@ -3,34 +3,22 @@
 import React, {useState} from "react"
 import {Button} from "@/components/ui/button"
 import {Card, CardContent} from "@/components/ui/card"
-import {Badge} from "@/components/ui/badge"
-import {Alert, AlertDescription} from "@/components/ui/alert"
 import {Label} from "@/components/ui/label"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
-import {AlertCircle, CheckCircle, Coffee, Loader2, MapPin, MapPinned, Moon} from "lucide-react"
+import {Alert, AlertDescription} from "@/components/ui/alert"
+import {AlertCircle, Coffee, Loader2, MapPin, MapPinned, Moon} from "lucide-react"
 import {
     checkIn,
-    CheckInOptions,
     checkOut,
+    calculateDistance,
     getCurrentLocation,
     isNearOffice,
-    type LocationData,
     OFFICE_COORDINATES
 } from "@/lib/presence-client"
-import {OfficeLocationMap} from "@/components/office-location-map"
 import {supabaseClient} from "@/lib/auth-client"
 import {markManualCheckIn, clearCheckInMethod} from "@/lib/check-in-tracking"
 import {useAuth} from "@/hooks/useAuth"
 import {useQueryClient} from "@tanstack/react-query"
 import {queryKeys} from "@/hooks/useRealtime"
-// import {requestNotificationPermission} from "@/lib/notifications"
 
 interface CheckInOutButtonProps {
     volunteerId: string
@@ -51,12 +39,10 @@ export function CheckInOutButton({
     const queryClient = useQueryClient()
     const [loading, setLoading] = useState(false)
     const [updatingStatus, setUpdatingStatus] = useState(false)
-    const [showLocationDialog, setShowLocationDialog] = useState(false)
     const [locationStatus, setLocationStatus] = useState<{
         type: 'success' | 'warning' | 'error' | null
         message: string
     }>({type: null, message: ''})
-    const [location, setLocation] = useState<LocationData | null>(null)
 
     // Local optimistic state for status
     const [optimisticStatus, setOptimisticStatus] = useState<"available" | "dnd" | "break" | "remote" | null>(null)
@@ -172,14 +158,10 @@ export function CheckInOutButton({
     }
 
     const handleLocationAction = async () => {
-        setShowLocationDialog(true)
         setLocationStatus({type: null, message: ''})
-        setLocation(null)
 
         try {
-            // Get current location
             const currentLocation = await getCurrentLocation()
-            setLocation(currentLocation)
 
             // Check if near office
             const nearOffice = isNearOffice(currentLocation.latitude, currentLocation.longitude)
@@ -200,7 +182,7 @@ export function CheckInOutButton({
                 // Checking in but not at office
                 setLocationStatus({
                     type: 'warning',
-                    message: `You're ${calculateDistanceFromOffice(currentLocation)}m from the office. Check in anyway?`
+                    message: `You're ${Math.round(calculateDistance(currentLocation.latitude, currentLocation.longitude, OFFICE_COORDINATES.latitude, OFFICE_COORDINATES.longitude))}m from the office. Check in anyway?`
                 })
             }
         } catch (error: unknown) {
@@ -235,76 +217,6 @@ export function CheckInOutButton({
         }
     }
 
-    const confirmLocationAction = async () => {
-        // Set location to office coordinates if none available
-        const loc: CheckInOptions = {
-            location: {
-                latitude: OFFICE_COORDINATES.latitude,
-                longitude: OFFICE_COORDINATES.longitude,
-                accuracy: 0,
-                timestamp: new Date()
-            }
-        }
-
-        setLoading(true)
-
-        // Optimistically update UI
-        updateVolunteerCache({
-            is_in_office: !isInOffice,
-            last_seen: new Date().toISOString()
-        })
-
-        try {
-            if (isInOffice) {
-                await checkOut(volunteerId, loc)
-                // Clear manual check-in tracking on checkout
-                clearCheckInMethod()
-            } else {
-                await checkIn(volunteerId, loc)
-                // Mark as manual check-in
-                markManualCheckIn(volunteerId)
-                // Request notification permission for hourly confirmations
-                // await requestNotificationPermission()
-            }
-            setShowLocationDialog(false)
-
-            // Invalidate volunteers query to update home page
-            queryClient.invalidateQueries({queryKey: queryKeys.volunteers})
-
-            // Refetch to ensure consistency
-            onSuccess?.()
-        } catch (error: unknown) {
-            console.error('Check-in/out error:', error)
-            const message = error instanceof Error ? error.message || 'Failed to update status' : 'Failed to update status'
-            setLocationStatus({
-                type: 'error',
-                message
-            })
-            // Revert optimistic update on error
-            updateVolunteerCache({
-                is_in_office: isInOffice,
-                last_seen: new Date().toISOString()
-            })
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const calculateDistanceFromOffice = (loc: LocationData): number => {
-        const R = 6371e3
-        const φ1 = (loc.latitude * Math.PI) / 180
-        const φ2 = (OFFICE_COORDINATES.latitude * Math.PI) / 180
-        const Δφ = ((OFFICE_COORDINATES.latitude - loc.latitude) * Math.PI) / 180
-        const Δλ = ((OFFICE_COORDINATES.longitude - loc.longitude) * Math.PI) / 180
-
-        const a =
-            Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
-        return Math.round(R * c)
-    }
-
     return (
         <>
             <Card>
@@ -323,6 +235,13 @@ export function CheckInOutButton({
                             {/*    Location verified*/}
                             {/*</Badge>*/}
                         </div>
+
+                        {locationStatus.type === 'error' && (
+                            <Alert variant="destructive">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>{locationStatus.message}</AlertDescription>
+                            </Alert>
+                        )}
 
                         {/* Main Check-in/out button */}
                         <Button
@@ -389,89 +308,6 @@ export function CheckInOutButton({
                 </CardContent>
             </Card>
 
-            {/* Location Confirmation Dialog - COMMENTED OUT FOR INSTANT CHECK-IN/OUT */}
-            {/*<Dialog open={showLocationDialog} onOpenChange={setShowLocationDialog}>*/}
-            {/*    <DialogContent className="max-w-2xl">*/}
-            {/*        <DialogHeader>*/}
-            {/*            <DialogTitle>*/}
-            {/*                {isInOffice ? "Check Out" : "Check In"} with Location*/}
-            {/*            </DialogTitle>*/}
-            {/*            <DialogDescription>*/}
-            {/*                We&apos;ll record your location to verify you&apos;re at the office*/}
-            {/*            </DialogDescription>*/}
-            {/*        </DialogHeader>*/}
-
-            {/*        <div className="space-y-4 py-4">*/}
-            {/*            {locationStatus.type === 'success' && (*/}
-            {/*                <Alert className="border-primary bg-primary/5">*/}
-            {/*                    <CheckCircle className="h-4 w-4 text-primary"/>*/}
-            {/*                    <AlertDescription>{locationStatus.message}</AlertDescription>*/}
-            {/*                </Alert>*/}
-            {/*            )}*/}
-
-            {/*            {locationStatus.type === 'warning' && (*/}
-            {/*                <Alert className="border-yellow-500 bg-yellow-500/5">*/}
-            {/*                    <AlertCircle className="h-4 w-4 text-yellow-500"/>*/}
-            {/*                    <AlertDescription>{locationStatus.message}</AlertDescription>*/}
-            {/*                </Alert>*/}
-            {/*            )}*/}
-
-            {/*            {locationStatus.type === 'error' && (*/}
-            {/*                <Alert variant="destructive">*/}
-            {/*                    <AlertCircle className="h-4 w-4"/>*/}
-            {/*                    <AlertDescription>{locationStatus.message}</AlertDescription>*/}
-            {/*                </Alert>*/}
-            {/*            )}*/}
-
-            {/*            {!locationStatus.type && (*/}
-            {/*                <div className="flex items-center justify-center py-8">*/}
-            {/*                    <Loader2 className="h-8 w-8 animate-spin text-primary"/>*/}
-            {/*                </div>*/}
-            {/*            )}*/}
-
-            {/*            /!* Map showing office and user location *!/*/}
-            {/*            <OfficeLocationMap*/}
-            {/*                userLocation={location ? {*/}
-            {/*                    latitude: location.latitude,*/}
-            {/*                    longitude: location.longitude*/}
-            {/*                } : null}*/}
-            {/*                showUserLocation={!!location}*/}
-            {/*            />*/}
-
-            {/*            /!*{location && (*!/*/}
-            {/*            /!*    <div className="text-sm text-muted-foreground space-y-1 bg-muted/50 p-3 rounded-lg">*!/*/}
-            {/*            /!*        <p><strong>Your coordinates:</strong></p>*!/*/}
-            {/*            /!*        <p>Latitude: {location.latitude.toFixed(6)}</p>*!/*/}
-            {/*            /!*        <p>Longitude: {location.longitude.toFixed(6)}</p>*!/*/}
-            {/*            /!*        <p>Accuracy: ±{location.accuracy.toFixed(0)}m</p>*!/*/}
-            {/*            /!*    </div>*!/*/}
-            {/*            /!*)}*!/*/}
-            {/*        </div>*/}
-
-            {/*        <DialogFooter>*/}
-            {/*            <Button*/}
-            {/*                variant="outline"*/}
-            {/*                onClick={() => setShowLocationDialog(false)}*/}
-            {/*                disabled={loading}*/}
-            {/*            >*/}
-            {/*                Cancel*/}
-            {/*            </Button>*/}
-            {/*            <Button*/}
-            {/*                onClick={confirmLocationAction}*/}
-            {/*                disabled={loading}*/}
-            {/*            >*/}
-            {/*                {loading ? (*/}
-            {/*                    <>*/}
-            {/*                        <Loader2 className="h-4 w-4 mr-2 animate-spin"/>*/}
-            {/*                        Processing...*/}
-            {/*                    </>*/}
-            {/*                ) : (*/}
-            {/*                    <>Confirm {isInOffice ? "Check Out" : "Check In"}</>*/}
-            {/*                )}*/}
-            {/*            </Button>*/}
-            {/*        </DialogFooter>*/}
-            {/*    </DialogContent>*/}
-            {/*</Dialog>*/}
         </>
     )
 }

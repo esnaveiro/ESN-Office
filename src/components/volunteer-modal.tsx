@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { X, Clock } from "lucide-react"
+import { X, Clock, User } from "lucide-react"
 import { format } from "date-fns"
+import Link from "next/link"
 
 type VolunteerStatus = "available" | "dnd" | "break" | "remote"
 
@@ -59,9 +60,17 @@ export function VolunteerModal({
       <Card className="max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold">Volunteer Details</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href={`/profile?userId=${volunteer.id}`}>
+              <Button variant="outline" size="sm">
+                <User className="h-4 w-4 mr-2" />
+                View Profile
+              </Button>
+            </Link>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-6">

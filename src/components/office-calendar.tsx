@@ -132,7 +132,6 @@ export function OfficeCalendar({
   ];
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const dayNamesShort = ["S", "M", "T", "W", "T", "F", "S"];
 
   // Week view helpers
   const getWeekStart = (date: Date) => {
@@ -210,7 +209,7 @@ export function OfficeCalendar({
     return getSlotsForDate(targetDate);
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeColor = (_type: string) => {
     return "bg-primary text-primary-foreground";
   };
 

@@ -53,6 +53,7 @@ export const MyReservations = forwardRef<MyReservationsRef, MyReservationsProps>
     // Edit modal state
     const [editModalOpen, setEditModalOpen] = useState(false)
     const [reservationToEdit, setReservationToEdit] = useState<UserReservation | null>(null)
+    const [editDate, setEditDate] = useState("")
     const [editStartTime, setEditStartTime] = useState("")
     const [editEndTime, setEditEndTime] = useState("")
     const [editReason, setEditReason] = useState("")
@@ -212,7 +213,8 @@ export const MyReservations = forwardRef<MyReservationsRef, MyReservationsProps>
         setReservationToEdit(reservation)
         const startDate = new Date(reservation.start_time)
         const endDate = new Date(reservation.end_time)
-        // Extract HH:MM format
+        const localDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`
+        setEditDate(localDateStr)
         setEditStartTime(startDate.toTimeString().slice(0, 5))
         setEditEndTime(endDate.toTimeString().slice(0, 5))
         setEditReason(reservation.reason || "")
@@ -225,7 +227,7 @@ export const MyReservations = forwardRef<MyReservationsRef, MyReservationsProps>
     }
 
     const handleUpdateReservation = async () => {
-        if (!reservationToEdit || !editStartTime || !editEndTime) {
+        if (!reservationToEdit || !editDate || !editStartTime || !editEndTime) {
             setError('Please fill in all required fields')
             return
         }
@@ -234,9 +236,8 @@ export const MyReservations = forwardRef<MyReservationsRef, MyReservationsProps>
         setError(null)
 
         try {
-            const dateStr = new Date(reservationToEdit.start_time).toISOString().split('T')[0]
-            const startDateTime = `${dateStr}T${editStartTime}:00`
-            const endDateTime = `${dateStr}T${editEndTime}:00`
+            const startDateTime = `${editDate}T${editStartTime}:00`
+            const endDateTime = `${editDate}T${editEndTime}:00`
 
             if (new Date(endDateTime) <= new Date(startDateTime)) {
                 setError('End time must be after start time')
@@ -600,11 +601,19 @@ export const MyReservations = forwardRef<MyReservationsRef, MyReservationsProps>
 
                     {reservationToEdit && (
                         <div className="space-y-4">
-                            <div className="p-3 rounded-lg border bg-muted/50">
-                                <Label className="text-sm font-medium flex items-center gap-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-date" className="text-sm flex items-center gap-2">
                                     <Calendar className="h-4 w-4"/>
-                                    {formatDate(reservationToEdit.start_time)}
+                                    Date
                                 </Label>
+                                <input
+                                    id="edit-date"
+                                    type="date"
+                                    value={editDate}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setEditDate(e.target.value)}
+                                    className="w-full p-2 border rounded-lg bg-background hover:border-primary/50 focus:border-primary transition-all text-sm [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -786,7 +795,7 @@ export const MyReservations = forwardRef<MyReservationsRef, MyReservationsProps>
                         </Button>
                         <Button
                             onClick={handleUpdateReservation}
-                            disabled={updatingReservation || !editStartTime || !editEndTime}
+                            disabled={updatingReservation || !editDate || !editStartTime || !editEndTime}
                         >
                             {updatingReservation ? (
                                 <>

@@ -1,6 +1,6 @@
 "use client"
 
-import {useEffect, useState} from "react"
+import {useCallback, useEffect, useState} from "react"
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card"
 import {Button} from "@/components/ui/button"
 import {Label} from "@/components/ui/label"
@@ -63,19 +63,19 @@ export function OfficeReservationCalendar({ volunteer, onSuccess }: OfficeReserv
   const [volunteerSearchQuery, setVolunteerSearchQuery] = useState("")
   const [sendEmailNotification, setSendEmailNotification] = useState(false)
 
-  // Fetch reservations
-  useEffect(() => {
-    fetchReservations()
-  }, [currentDate])
-
-  // Fetch all volunteers when a date is selected
-  useEffect(() => {
-    if (selectedDate) {
-      fetchAllVolunteers()
+  const fetchReservations = useCallback(async () => {
+    try {
+      const response = await fetch('/api/office-reservation')
+      if (response.ok) {
+        const data = await response.json()
+        setReservations(data.reservations || [])
+      }
+    } catch (error) {
+      console.error('Error fetching reservations:', error)
     }
-  }, [selectedDate])
+  }, [])
 
-  const fetchAllVolunteers = async () => {
+  const fetchAllVolunteers = useCallback(async () => {
     try {
       const { data, error } = await supabaseClient
         .from('volunteers')
@@ -88,25 +88,26 @@ export function OfficeReservationCalendar({ volunteer, onSuccess }: OfficeReserv
     } catch (error) {
       console.error('Error fetching volunteers:', error)
     }
-  }
+  }, [volunteer.id])
 
-  const fetchReservations = async () => {
-    try {
-      const response = await fetch('/api/office-reservation')
-      if (response.ok) {
-        const data = await response.json()
-        setReservations(data.reservations || [])
-      }
-    } catch (error) {
-      console.error('Error fetching reservations:', error)
+  // Fetch reservations
+  useEffect(() => {
+    fetchReservations()
+  }, [currentDate, fetchReservations])
+
+  // Fetch all volunteers when a date is selected
+  useEffect(() => {
+    if (selectedDate) {
+      fetchAllVolunteers()
     }
-  }
+  }, [selectedDate, fetchAllVolunteers])
 
   const getReservationsForDate = (date: Date | null) => {
     if (!date) return []
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
     return reservations.filter(res => {
-      const resDate = new Date(res.start_time).toISOString().split('T')[0]
+      const d = new Date(res.start_time)
+      const resDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       return resDate === dateStr
     })
   }
@@ -176,14 +177,16 @@ export function OfficeReservationCalendar({ volunteer, onSuccess }: OfficeReserv
       setSendEmailNotification(false)
       setSelectedVolunteers([])
       setShowVolunteerSelector(false)
-      // setSendApprovalRequest(true)
       setMessage(null)
       return
     }
 
     setSelectedDate(date)
     setMessage(null)
-    // Clear editing state when selecting a new date
+
+    // When editing, only change the date — keep all other form fields intact
+    if (editingReservation) return
+
     setEditingReservation(null)
     setSelectedStartTime("")
     setSelectedEndTime("")
@@ -191,7 +194,6 @@ export function OfficeReservationCalendar({ volunteer, onSuccess }: OfficeReserv
     setSendEmailNotification(false)
     setSelectedVolunteers([])
     setShowVolunteerSelector(false)
-    // setSendApprovalRequest(true)
   }
 
   const handleEditReservation = (reservation: Reservation) => {
@@ -218,8 +220,9 @@ export function OfficeReservationCalendar({ volunteer, onSuccess }: OfficeReserv
     setMessage(null)
 
     try {
-      const startDateTime = `${selectedDate.toISOString().split('T')[0]}T${selectedStartTime}:00`
-      const endDateTime = `${selectedDate.toISOString().split('T')[0]}T${selectedEndTime}:00`
+      const localDateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
+      const startDateTime = `${localDateStr}T${selectedStartTime}:00`
+      const endDateTime = `${localDateStr}T${selectedEndTime}:00`
 
       if (new Date(endDateTime) <= new Date(startDateTime)) {
         setMessage({ type: 'error', text: 'End time must be after start time' })
@@ -407,6 +410,7 @@ export function OfficeReservationCalendar({ volunteer, onSuccess }: OfficeReserv
             {editingReservation && (
               <div className="p-3 rounded-lg border bg-primary/5">
                 <Label className="text-sm font-medium">Editing Reservation</Label>
+                <p className="text-xs text-muted-foreground mt-1">Click a different date on the calendar to change the date.</p>
               </div>
             )}
 

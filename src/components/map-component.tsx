@@ -6,6 +6,7 @@ import { LatLngExpression } from 'leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { OFFICE_COORDINATES } from '@/lib/presence-client'
+import { SECTION_NAME, OFFICE_ADDRESS } from '@/lib/constants'
 
 // Fix for default marker icon in react-leaflet
 // Use CDN URLs instead of importing the images
@@ -70,11 +71,8 @@ export function MapComponent({ userLocation, showUserLocation = false }: MapComp
         <Marker position={officePosition}>
           <Popup>
             <div className="text-sm">
-              <strong>ESN Aveiro Office</strong>
-              <br />
-              Edifício Central da Reitoria
-              <br />
-              Campus Universitário de Santiago
+              <strong>{SECTION_NAME} Office</strong>
+              {OFFICE_ADDRESS && (<><br />{OFFICE_ADDRESS}</>)}
             </div>
           </Popup>
         </Marker>

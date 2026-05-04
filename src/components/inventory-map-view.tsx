@@ -41,7 +41,7 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
     return inventoryByLocation[locationKey]?.length || 0
   }
 
-  const handleLocationClick = (locationKey: string, locationName: string) => {
+  const handleLocationClick = (locationKey: string, _locationName: string) => {
     if (selectedLocation === locationKey) {
       setSelectedLocation(null)
     } else {

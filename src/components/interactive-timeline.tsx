@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SECTION_NAME, OFFICE_ADDRESS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -182,7 +183,7 @@ export function InteractiveTimeline({
 
   const currentIntervalIndex = getCurrentIntervalIndex();
 
-  const getStatusColor = (status: PresenceStatus) => {
+  const getStatusColor = (_status: PresenceStatus) => {
     return "bg-primary";
   };
 
@@ -297,7 +298,7 @@ export function InteractiveTimeline({
 
           {/* Mobile View */}
           <div className="md:hidden space-y-2">
-            {timeIntervals.filter((_, index) => index >= Math.max(0, currentIntervalIndex - 2) && index <= currentIntervalIndex + 6).map((interval, index) => {
+            {timeIntervals.filter((_, index) => index >= Math.max(0, currentIntervalIndex - 2) && index <= currentIntervalIndex + 6).map((interval) => {
               const status = getIntervalStatus(interval);
               const actualIndex = timeIntervals.indexOf(interval);
               const isCurrent = actualIndex === currentIntervalIndex;
@@ -410,7 +411,7 @@ export function InteractiveTimeline({
                 <div className="pt-3 border-t">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4" />
-                    ESN Aveiro Office • Campus Universitário de Santiago
+                    {SECTION_NAME} Office • {OFFICE_ADDRESS}
                   </div>
                 </div>
               </div>
