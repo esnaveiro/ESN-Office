@@ -1,4 +1,7 @@
 import { supabaseClient } from './auth-client'
+import { OFFICE_COORDINATES } from './constants'
+
+export { OFFICE_COORDINATES }
 
 export interface LocationData {
   latitude: number
@@ -18,33 +21,20 @@ export interface CheckInOptions {
 export async function checkIn(volunteerId: string, options?: CheckInOptions) {
   const { location } = options || {}
 
-  // Start transaction: update volunteer status and create log
-  const [volunteerResult, logResult] = await Promise.all([
-    // Update volunteer to be in office
-    supabaseClient
-      .from('volunteers')
-      .update({
-        is_in_office: true,
-        last_seen: new Date().toISOString()
-      })
-      .eq('id', volunteerId),
+  const logResult = await supabaseClient
+    .from('presence_logs')
+    .insert({ volunteer_id: volunteerId, action: 'check_in' })
 
-    // Create presence log entry
-    supabaseClient
-      .from('presence_logs')
-      .insert({
-        volunteer_id: volunteerId,
-        action: 'check_in'
-      })
-  ])
-
-  if (volunteerResult.error) throw volunteerResult.error
   if (logResult.error) throw logResult.error
 
-  return {
-    success: true,
-    hasLocation: !!location
-  }
+  const volunteerResult = await supabaseClient
+    .from('volunteers')
+    .update({ is_in_office: true, last_seen: new Date().toISOString() })
+    .eq('id', volunteerId)
+
+  if (volunteerResult.error) throw volunteerResult.error
+
+  return { success: true, hasLocation: !!location }
 }
 
 /**
@@ -54,33 +44,20 @@ export async function checkIn(volunteerId: string, options?: CheckInOptions) {
 export async function checkOut(volunteerId: string, options?: CheckInOptions) {
   const { location } = options || {}
 
-  // Start transaction: update volunteer status and create log
-  const [volunteerResult, logResult] = await Promise.all([
-    // Update volunteer to be out of office
-    supabaseClient
-      .from('volunteers')
-      .update({
-        is_in_office: false,
-        last_seen: new Date().toISOString()
-      })
-      .eq('id', volunteerId),
+  const logResult = await supabaseClient
+    .from('presence_logs')
+    .insert({ volunteer_id: volunteerId, action: 'check_out' })
 
-    // Create presence log entry
-    supabaseClient
-      .from('presence_logs')
-      .insert({
-        volunteer_id: volunteerId,
-        action: 'check_out'
-      })
-  ])
-
-  if (volunteerResult.error) throw volunteerResult.error
   if (logResult.error) throw logResult.error
 
-  return {
-    success: true,
-    hasLocation: !!location
-  }
+  const volunteerResult = await supabaseClient
+    .from('volunteers')
+    .update({ is_in_office: false, last_seen: new Date().toISOString() })
+    .eq('id', volunteerId)
+
+  if (volunteerResult.error) throw volunteerResult.error
+
+  return { success: true, hasLocation: !!location }
 }
 
 /**
@@ -152,14 +129,6 @@ export function calculateDistance(
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
   return R * c // Distance in meters
-}
-
-// ESN Aveiro Office coordinates
-// Edifício Central da Reitoria, Campus Universitário de Santiago
-// 3810-193 Aveiro, Portugal
-export const OFFICE_COORDINATES = {
-  latitude: 40.630903835979815,
-  longitude: -8.658982279967713
 }
 
 /**

@@ -19,6 +19,8 @@ export type Database = {
           status: 'available' | 'dnd' | 'break' | 'remote'
           is_in_office: boolean
           last_seen: string | null
+          esn_sub: string | null
+          is_admin: boolean
         }
         Insert: {
           id?: string
@@ -29,6 +31,8 @@ export type Database = {
           status?: 'available' | 'dnd' | 'break' | 'remote'
           is_in_office?: boolean
           last_seen?: string | null
+          esn_sub?: string | null
+          is_admin?: boolean
         }
         Update: {
           id?: string
@@ -39,6 +43,8 @@ export type Database = {
           status?: 'available' | 'dnd' | 'break' | 'remote'
           is_in_office?: boolean
           last_seen?: string | null
+          esn_sub?: string | null
+          is_admin?: boolean
         }
         Relationships: []
       }
@@ -269,12 +275,10 @@ export type Database = {
           start_time: string
           end_time: string
           reason: string | null
+          send_email_notification: boolean
           is_active: boolean
+          status: 'pending' | 'approved' | 'rejected'
           additional_volunteers: string[] | null
-          cancelled_at: string | null
-          cancelled_by_id: string | null
-          cancelled_by_name: string | null
-          cancellation_reason: string | null
           created_at: string
           updated_at: string
         }
@@ -285,12 +289,10 @@ export type Database = {
           start_time: string
           end_time: string
           reason?: string | null
+          send_email_notification?: boolean
           is_active?: boolean
+          status?: 'pending' | 'approved' | 'rejected'
           additional_volunteers?: string[] | null
-          cancelled_at?: string | null
-          cancelled_by_id?: string | null
-          cancelled_by_name?: string | null
-          cancellation_reason?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -301,12 +303,10 @@ export type Database = {
           start_time?: string
           end_time?: string
           reason?: string | null
+          send_email_notification?: boolean
           is_active?: boolean
+          status?: 'pending' | 'approved' | 'rejected'
           additional_volunteers?: string[] | null
-          cancelled_at?: string | null
-          cancelled_by_id?: string | null
-          cancelled_by_name?: string | null
-          cancellation_reason?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -381,8 +381,12 @@ export type Database = {
           start_time: string
           end_time: string
           reason: string | null
+          send_email_notification: boolean
           is_active: boolean
+          status: string
           additional_volunteers: string[] | null
+          created_at: string
+          updated_at: string
         }[]
       }
     }

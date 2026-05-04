@@ -89,7 +89,7 @@ export function parseCheckInSessions(logs: Array<{ action: string; timestamp: st
     sessions.push({
       checkIn: currentCheckIn,
       checkOut: null,
-      durationMinutes: (new Date().getTime() - currentCheckIn.getTime()) / (1000 * 60)
+      durationMinutes: Math.max(0, (new Date().getTime() - currentCheckIn.getTime()) / (1000 * 60))
     })
   }
 
@@ -220,473 +220,286 @@ export function calculateBadges(
   monthlyStats: MonthlyStats,
   allTimeSessions: CheckInSession[]
 ): Badge[] {
-  const badges: Badge[] = []
+  const totalCheckIns = allTimeSessions.length
+  const totalHours = Math.max(0, allTimeSessions.reduce((sum, s) => sum + s.durationMinutes, 0) / 60)
+  const streak = monthlyStats.currentStreak
 
-  // First Check-in
-  if (allTimeSessions.length > 0) {
-    badges.push({
+  const earlyCheckIns = allTimeSessions.filter(s => s.checkIn.getHours() < 9)
+  const superEarlyCheckIns = allTimeSessions.filter(s => s.checkIn.getHours() < 8)
+  const lateCheckOuts = allTimeSessions.filter(s => s.checkOut && s.checkOut.getHours() >= 20)
+  const veryLateCheckOuts = allTimeSessions.filter(s => s.checkOut && s.checkOut.getHours() >= 22)
+  const weekendSessions = allTimeSessions.filter(s => {
+    const d = s.checkIn.getDay();
+    return d === 0 || d === 6
+  })
+  const quickSessions = allTimeSessions.filter(s => s.durationMinutes >= 5 && s.durationMinutes <= 30)
+  const longSessions = allTimeSessions.filter(s => s.durationMinutes >= 360)
+  const marathonSession = allTimeSessions.find(s => s.durationMinutes >= 240)
+
+  function unlocked<T>(list: T[], idx: number, date: Date | null | undefined): Badge['unlockedAt'] {
+    return list.length > idx ? (date ?? new Date()) : undefined
+  }
+
+  const definitions: Badge[] = [
+    // ── First check-in ──────────────────────────────────────────────────
+    {
       id: 'first-checkin',
       name: 'First Step',
-      description: 'Completed your first check-in',
+      description: 'Complete your first check-in',
       icon: 'Sparkles',
-      unlockedAt: allTimeSessions[0].checkIn
-    })
-  }
+      unlockedAt: totalCheckIns >= 1 ? allTimeSessions[0].checkIn : undefined,
+      progress: Math.min(totalCheckIns, 1),
+      target: 1,
+    },
 
-  // Early Bird (checked in before 9 AM)
-  const earlyCheckIns = allTimeSessions.filter(s => s.checkIn.getHours() < 9)
-  if (earlyCheckIns.length >= 5) {
-    badges.push({
-      id: 'early-bird',
-      name: 'Early Bird',
-      description: 'Checked in before 9 AM at least 5 times',
-      icon: 'Sunrise',
-      unlockedAt: earlyCheckIns[4].checkIn
-    })
-  } else if (earlyCheckIns.length > 0) {
-    badges.push({
-      id: 'early-bird',
-      name: 'Early Bird',
-      description: 'Check in before 9 AM 5 times',
-      icon: 'Sunrise',
-      progress: earlyCheckIns.length,
-      target: 5
-    })
-  }
-
-  // Night Owl (checked out after 8 PM)
-  const lateCheckOuts = allTimeSessions.filter(s => s.checkOut && s.checkOut.getHours() >= 20)
-  if (lateCheckOuts.length >= 5) {
-    badges.push({
-      id: 'night-owl',
-      name: 'Night Owl',
-      description: 'Checked out after 8 PM at least 5 times',
-      icon: 'Moon',
-      unlockedAt: lateCheckOuts[4].checkOut || undefined
-    })
-  } else if (lateCheckOuts.length > 0) {
-    badges.push({
-      id: 'night-owl',
-      name: 'Night Owl',
-      description: 'Check out after 8 PM 5 times',
-      icon: 'Moon',
-      progress: lateCheckOuts.length,
-      target: 5
-    })
-  }
-
-  // Consistent Contributor (7+ days active in a month)
-  if (monthlyStats.daysActive >= 7) {
-    badges.push({
-      id: 'consistent',
-      name: 'Consistent Contributor',
-      description: 'Active for 7+ days this month',
-      icon: 'Star',
-      unlockedAt: new Date()
-    })
-  } else {
-    badges.push({
-      id: 'consistent',
-      name: 'Consistent Contributor',
-      description: 'Be active for 7 days in a month',
-      icon: 'Star',
-      progress: monthlyStats.daysActive,
-      target: 7
-    })
-  }
-
-  // Marathon (4+ hours in a single session)
-  const marathonSession = allTimeSessions.find(s => s.durationMinutes >= 240)
-  if (marathonSession) {
-    badges.push({
-      id: 'marathon',
-      name: 'Marathon',
-      description: 'Stayed in office for 4+ hours in one session',
-      icon: 'Zap',
-      unlockedAt: marathonSession.checkOut || undefined
-    })
-  }
-
-  // Streak badges
-  if (monthlyStats.currentStreak >= 3) {
-    badges.push({
-      id: 'streak-3',
-      name: '3-Day Streak',
-      description: 'Checked in for 3 consecutive days',
-      icon: 'Flame',
-      unlockedAt: new Date()
-    })
-  }
-
-  if (monthlyStats.currentStreak >= 7) {
-    badges.push({
-      id: 'streak-7',
-      name: 'Week Warrior',
-      description: 'Checked in for 7 consecutive days',
-      icon: 'Flame',
-      unlockedAt: new Date()
-    })
-  }
-
-  if (monthlyStats.currentStreak >= 14) {
-    badges.push({
-      id: 'streak-14',
-      name: 'Fortnight Fighter',
-      description: 'Checked in for 14 consecutive days',
-      icon: 'Flame',
-      unlockedAt: new Date()
-    })
-  }
-
-  // Total check-ins milestones
-  if (allTimeSessions.length >= 10) {
-    badges.push({
-      id: 'checkins-10',
-      name: 'Regular',
-      description: 'Completed 10 check-ins',
-      icon: 'CheckCircle',
-      unlockedAt: allTimeSessions[9].checkIn
-    })
-  } else if (allTimeSessions.length >= 1) {
-    badges.push({
+    // ── Check-in milestones ──────────────────────────────────────────────
+    {
       id: 'checkins-10',
       name: 'Regular',
       description: 'Complete 10 check-ins',
       icon: 'CheckCircle',
-      progress: allTimeSessions.length,
-      target: 10
-    })
-  }
-
-  if (allTimeSessions.length >= 25) {
-    badges.push({
-      id: 'checkins-25',
-      name: 'Committed',
-      description: 'Completed 25 check-ins',
-      icon: 'Target',
-      unlockedAt: allTimeSessions[24].checkIn
-    })
-  } else if (allTimeSessions.length >= 10) {
-    badges.push({
+      unlockedAt: totalCheckIns >= 10 ? allTimeSessions[9].checkIn : undefined,
+      progress: Math.min(totalCheckIns, 10),
+      target: 10,
+    },
+    {
       id: 'checkins-25',
       name: 'Committed',
       description: 'Complete 25 check-ins',
       icon: 'Target',
-      progress: allTimeSessions.length,
-      target: 25
-    })
-  }
-
-  if (allTimeSessions.length >= 50) {
-    badges.push({
-      id: 'checkins-50',
-      name: 'Dedicated',
-      description: 'Completed 50 check-ins',
-      icon: 'Award',
-      unlockedAt: allTimeSessions[49].checkIn
-    })
-  } else if (allTimeSessions.length >= 25) {
-    badges.push({
+      unlockedAt: totalCheckIns >= 25 ? allTimeSessions[24].checkIn : undefined,
+      progress: Math.min(totalCheckIns, 25),
+      target: 25,
+    },
+    {
       id: 'checkins-50',
       name: 'Dedicated',
       description: 'Complete 50 check-ins',
       icon: 'Award',
-      progress: allTimeSessions.length,
-      target: 50
-    })
-  }
-
-  if (allTimeSessions.length >= 100) {
-    badges.push({
-      id: 'checkins-100',
-      name: 'Legend',
-      description: 'Completed 100 check-ins',
-      icon: 'Trophy',
-      unlockedAt: allTimeSessions[99].checkIn
-    })
-  } else if (allTimeSessions.length >= 50) {
-    badges.push({
+      unlockedAt: totalCheckIns >= 50 ? allTimeSessions[49].checkIn : undefined,
+      progress: Math.min(totalCheckIns, 50),
+      target: 50,
+    },
+    {
       id: 'checkins-100',
       name: 'Legend',
       description: 'Complete 100 check-ins',
       icon: 'Trophy',
-      progress: allTimeSessions.length,
-      target: 100
-    })
-  }
-
-  if (allTimeSessions.length >= 200) {
-    badges.push({
-      id: 'checkins-200',
-      name: 'Office Hero',
-      description: 'Completed 200 check-ins',
-      icon: 'Medal',
-      unlockedAt: allTimeSessions[199].checkIn
-    })
-  } else if (allTimeSessions.length >= 100) {
-    badges.push({
+      unlockedAt: totalCheckIns >= 100 ? allTimeSessions[99].checkIn : undefined,
+      progress: Math.min(totalCheckIns, 100),
+      target: 100,
+    },
+    {
       id: 'checkins-200',
       name: 'Office Hero',
       description: 'Complete 200 check-ins',
       icon: 'Medal',
-      progress: allTimeSessions.length,
-      target: 200
-    })
-  }
+      unlockedAt: totalCheckIns >= 200 ? allTimeSessions[199].checkIn : undefined,
+      progress: Math.min(totalCheckIns, 200),
+      target: 200,
+    },
 
-  // Calculate total hours spent in office
-  const totalHours = allTimeSessions.reduce((sum, s) => sum + s.durationMinutes, 0) / 60
-
-  // Time-based achievements
-  if (totalHours >= 10) {
-    badges.push({
-      id: 'hours-10',
-      name: 'Time Keeper',
-      description: 'Spent 10+ hours in the office',
-      icon: 'Clock',
-      unlockedAt: new Date()
-    })
-  } else if (totalHours >= 1) {
-    badges.push({
+    // ── Time milestones ──────────────────────────────────────────────────
+    {
       id: 'hours-10',
       name: 'Time Keeper',
       description: 'Spend 10 hours in the office',
       icon: 'Clock',
-      progress: Math.floor(totalHours),
-      target: 10
-    })
-  }
-
-  if (totalHours >= 50) {
-    badges.push({
-      id: 'hours-50',
-      name: 'Time Master',
-      description: 'Spent 50+ hours in the office',
-      icon: 'Hourglass',
-      unlockedAt: new Date()
-    })
-  } else if (totalHours >= 10) {
-    badges.push({
+      unlockedAt: totalHours >= 10 ? new Date() : undefined,
+      progress: Math.min(Math.floor(totalHours), 10),
+      target: 10,
+    },
+    {
       id: 'hours-50',
       name: 'Time Master',
       description: 'Spend 50 hours in the office',
       icon: 'Hourglass',
-      progress: Math.floor(totalHours),
-      target: 50
-    })
-  }
-
-  if (totalHours >= 100) {
-    badges.push({
-      id: 'hours-100',
-      name: 'Century Club',
-      description: 'Spent 100+ hours in the office',
-      icon: 'CalendarClock',
-      unlockedAt: new Date()
-    })
-  } else if (totalHours >= 50) {
-    badges.push({
+      unlockedAt: totalHours >= 50 ? new Date() : undefined,
+      progress: Math.min(Math.floor(totalHours), 50),
+      target: 50,
+    },
+    {
       id: 'hours-100',
       name: 'Century Club',
       description: 'Spend 100 hours in the office',
       icon: 'CalendarClock',
-      progress: Math.floor(totalHours),
-      target: 100
-    })
-  }
+      unlockedAt: totalHours >= 100 ? new Date() : undefined,
+      progress: Math.min(Math.floor(totalHours), 100),
+      target: 100,
+    },
 
-  // Weekend warrior
-  const weekendSessions = allTimeSessions.filter(s => {
-    const day = s.checkIn.getDay()
-    return day === 0 || day === 6 // Sunday or Saturday
-  })
+    // ── Streak badges ────────────────────────────────────────────────────
+    {
+      id: 'streak-3',
+      name: '3-Day Streak',
+      description: 'Check in for 3 consecutive days',
+      icon: 'Flame',
+      unlockedAt: streak >= 3 ? new Date() : undefined,
+      progress: Math.min(streak, 3),
+      target: 3,
+    },
+    {
+      id: 'streak-7',
+      name: 'Week Warrior',
+      description: 'Check in for 7 consecutive days',
+      icon: 'Flame',
+      unlockedAt: streak >= 7 ? new Date() : undefined,
+      progress: Math.min(streak, 7),
+      target: 7,
+    },
+    {
+      id: 'streak-14',
+      name: 'Fortnight Fighter',
+      description: 'Check in for 14 consecutive days',
+      icon: 'Flame',
+      unlockedAt: streak >= 14 ? new Date() : undefined,
+      progress: Math.min(streak, 14),
+      target: 14,
+    },
+    {
+      id: 'streak-30',
+      name: 'Month Long Dedication',
+      description: 'Check in for 30 consecutive days',
+      icon: 'Flame',
+      unlockedAt: streak >= 30 ? new Date() : undefined,
+      progress: Math.min(streak, 30),
+      target: 30,
+    },
+    {
+      id: 'streak-60',
+      name: 'Unstoppable',
+      description: 'Check in for 60 consecutive days',
+      icon: 'Rocket',
+      unlockedAt: streak >= 60 ? new Date() : undefined,
+      progress: Math.min(streak, 60),
+      target: 60,
+    },
+    {
+      id: 'streak-100',
+      name: 'Century Streak',
+      description: 'Check in for 100 consecutive days',
+      icon: 'Crown',
+      unlockedAt: streak >= 100 ? new Date() : undefined,
+      progress: Math.min(streak, 100),
+      target: 100,
+    },
 
-  if (weekendSessions.length >= 5) {
-    badges.push({
-      id: 'weekend-warrior',
-      name: 'Weekend Warrior',
-      description: 'Checked in on weekends 5+ times',
-      icon: 'CalendarDays',
-      unlockedAt: weekendSessions[4].checkIn
-    })
-  } else if (weekendSessions.length >= 1) {
-    badges.push({
-      id: 'weekend-warrior',
-      name: 'Weekend Warrior',
-      description: 'Check in on weekends 5 times',
-      icon: 'CalendarDays',
-      progress: weekendSessions.length,
-      target: 5
-    })
-  }
-
-  // Speed demon (quick sessions - under 30 minutes)
-  const quickSessions = allTimeSessions.filter(s => s.durationMinutes <= 30 && s.durationMinutes >= 5)
-  if (quickSessions.length >= 10) {
-    badges.push({
-      id: 'speed-demon',
-      name: 'Speed Demon',
-      description: 'Completed 10 quick visits (5-30 min)',
-      icon: 'Zap',
-      unlockedAt: quickSessions[9].checkIn
-    })
-  } else if (quickSessions.length >= 1) {
-    badges.push({
-      id: 'speed-demon',
-      name: 'Speed Demon',
-      description: 'Complete 10 quick visits (5-30 min)',
-      icon: 'Zap',
-      progress: quickSessions.length,
-      target: 10
-    })
-  }
-
-  // Long haul (sessions over 6 hours)
-  const longSessions = allTimeSessions.filter(s => s.durationMinutes >= 360)
-  if (longSessions.length >= 3) {
-    badges.push({
-      id: 'long-haul',
-      name: 'The Long Haul',
-      description: 'Stayed 6+ hours on 3 occasions',
-      icon: 'Timer',
-      unlockedAt: longSessions[2].checkOut || undefined
-    })
-  } else if (longSessions.length >= 1) {
-    badges.push({
-      id: 'long-haul',
-      name: 'The Long Haul',
-      description: 'Stay 6+ hours on 3 occasions',
-      icon: 'Timer',
-      progress: longSessions.length,
-      target: 3
-    })
-  }
-
-  // Perfect week (checked in every weekday in a week)
-  // This is a simplified check - could be improved to check actual consecutive weekdays
-  if (weeklyStats.daysActive >= 5) {
-    badges.push({
-      id: 'perfect-week',
-      name: 'Perfect Week',
-      description: 'Active 5+ days this week',
-      icon: 'CalendarCheck',
-      unlockedAt: new Date()
-    })
-  } else if (weeklyStats.daysActive >= 1) {
-    badges.push({
+    // ── Consistency ──────────────────────────────────────────────────────
+    {
+      id: 'consistent',
+      name: 'Consistent Contributor',
+      description: 'Be active for 7 days in a month',
+      icon: 'Star',
+      unlockedAt: monthlyStats.daysActive >= 7 ? new Date() : undefined,
+      progress: Math.min(monthlyStats.daysActive, 7),
+      target: 7,
+    },
+    {
       id: 'perfect-week',
       name: 'Perfect Week',
       description: 'Be active 5 days in a week',
       icon: 'CalendarCheck',
-      progress: weeklyStats.daysActive,
-      target: 5
-    })
-  }
-
-  // Month master (15+ days active in a month)
-  if (monthlyStats.daysActive >= 15) {
-    badges.push({
-      id: 'month-master',
-      name: 'Month Master',
-      description: 'Active 15+ days in a month',
-      icon: 'Calendar',
-      unlockedAt: new Date()
-    })
-  } else if (monthlyStats.daysActive >= 7) {
-    badges.push({
+      unlockedAt: weeklyStats.daysActive >= 5 ? new Date() : undefined,
+      progress: Math.min(weeklyStats.daysActive, 5),
+      target: 5,
+    },
+    {
       id: 'month-master',
       name: 'Month Master',
       description: 'Be active 15 days in a month',
       icon: 'Calendar',
-      progress: monthlyStats.daysActive,
-      target: 15
-    })
-  }
+      unlockedAt: monthlyStats.daysActive >= 15 ? new Date() : undefined,
+      progress: Math.min(monthlyStats.daysActive, 15),
+      target: 15,
+    },
 
-  // Super early bird (before 8 AM)
-  const superEarlyCheckIns = allTimeSessions.filter(s => s.checkIn.getHours() < 8)
-  if (superEarlyCheckIns.length >= 3) {
-    badges.push({
-      id: 'super-early-bird',
-      name: 'Super Early Bird',
-      description: 'Checked in before 8 AM at least 3 times',
-      icon: 'Sun',
-      unlockedAt: superEarlyCheckIns[2].checkIn
-    })
-  } else if (superEarlyCheckIns.length >= 1) {
-    badges.push({
+    // ── Session types ────────────────────────────────────────────────────
+    {
+      id: 'marathon',
+      name: 'Marathon',
+      description: 'Stay in the office for 4+ hours in one session',
+      icon: 'Zap',
+      unlockedAt: marathonSession ? (marathonSession.checkOut ?? new Date()) : undefined,
+      progress: marathonSession ? 1 : 0,
+      target: 1,
+    },
+    {
+      id: 'long-haul',
+      name: 'The Long Haul',
+      description: 'Stay 6+ hours on 3 occasions',
+      icon: 'Timer',
+      unlockedAt: unlocked(longSessions, 2, longSessions[2]?.checkOut),
+      progress: Math.min(longSessions.length, 3),
+      target: 3,
+    },
+    {
+      id: 'speed-demon',
+      name: 'Speed Demon',
+      description: 'Complete 10 quick visits (5–30 min)',
+      icon: 'Zap',
+      unlockedAt: unlocked(quickSessions, 9, quickSessions[9]?.checkIn),
+      progress: Math.min(quickSessions.length, 10),
+      target: 10,
+    },
+
+    // ── Time of day ──────────────────────────────────────────────────────
+    {
+      id: 'early-bird',
+      name: 'Early Bird',
+      description: 'Check in before 9 AM 5 times',
+      icon: 'Sunrise',
+      unlockedAt: unlocked(earlyCheckIns, 4, earlyCheckIns[4]?.checkIn),
+      progress: Math.min(earlyCheckIns.length, 5),
+      target: 5,
+    },
+    {
       id: 'super-early-bird',
       name: 'Super Early Bird',
       description: 'Check in before 8 AM 3 times',
       icon: 'Sun',
-      progress: superEarlyCheckIns.length,
-      target: 3
-    })
-  }
-
-  // Midnight oil (checked out after 10 PM)
-  const veryLateCheckOuts = allTimeSessions.filter(s => s.checkOut && s.checkOut.getHours() >= 22)
-  if (veryLateCheckOuts.length >= 3) {
-    badges.push({
-      id: 'midnight-oil',
-      name: 'Burning Midnight Oil',
-      description: 'Checked out after 10 PM at least 3 times',
-      icon: 'Flame',
-      unlockedAt: veryLateCheckOuts[2].checkOut || undefined
-    })
-  } else if (veryLateCheckOuts.length >= 1) {
-    badges.push({
+      unlockedAt: unlocked(superEarlyCheckIns, 2, superEarlyCheckIns[2]?.checkIn),
+      progress: Math.min(superEarlyCheckIns.length, 3),
+      target: 3,
+    },
+    {
+      id: 'night-owl',
+      name: 'Night Owl',
+      description: 'Check out after 8 PM 5 times',
+      icon: 'Moon',
+      unlockedAt: unlocked(lateCheckOuts, 4, lateCheckOuts[4]?.checkOut),
+      progress: Math.min(lateCheckOuts.length, 5),
+      target: 5,
+    },
+    {
       id: 'midnight-oil',
       name: 'Burning Midnight Oil',
       description: 'Check out after 10 PM 3 times',
       icon: 'Flame',
-      progress: veryLateCheckOuts.length,
-      target: 3
-    })
-  }
+      unlockedAt: unlocked(veryLateCheckOuts, 2, veryLateCheckOuts[2]?.checkOut),
+      progress: Math.min(veryLateCheckOuts.length, 3),
+      target: 3,
+    },
 
-  // Social butterfly (check in when 3+ others are present) - requires office buddies data
-  // This would need access to overlap data, skipping for now
+    // ── Other ────────────────────────────────────────────────────────────
+    {
+      id: 'weekend-warrior',
+      name: 'Weekend Warrior',
+      description: 'Check in on weekends 5 times',
+      icon: 'CalendarDays',
+      unlockedAt: unlocked(weekendSessions, 4, weekendSessions[4]?.checkIn),
+      progress: Math.min(weekendSessions.length, 5),
+      target: 5,
+    },
+  ]
 
-  // Monthly streak badges (additional to 3, 7, 14 day streaks)
-  if (monthlyStats.currentStreak >= 30) {
-    badges.push({
-      id: 'streak-30',
-      name: 'Month Long Dedication',
-      description: 'Checked in for 30 consecutive days',
-      icon: 'Flame',
-      unlockedAt: new Date()
-    })
-  }
-
-  if (monthlyStats.currentStreak >= 60) {
-    badges.push({
-      id: 'streak-60',
-      name: 'Unstoppable',
-      description: 'Checked in for 60 consecutive days',
-      icon: 'Rocket',
-      unlockedAt: new Date()
-    })
-  }
-
-  if (monthlyStats.currentStreak >= 100) {
-    badges.push({
-      id: 'streak-100',
-      name: 'Century Streak',
-      description: 'Checked in for 100 consecutive days',
-      icon: 'Crown',
-      unlockedAt: new Date()
-    })
-  }
-
-  // Sort: unlocked first, then by progress
-  return badges.sort((a, b) => {
-    if (a.unlockedAt && !b.unlockedAt) return -1
-    if (!a.unlockedAt && b.unlockedAt) return 1
-    if (a.progress !== undefined && b.progress !== undefined) {
-      return b.progress - a.progress
-    }
-    return 0
+  // Sort: unlocked first (by unlock date desc), then locked by descending progress ratio
+  return definitions.sort((a, b) => {
+    if (a.unlockedAt && b.unlockedAt) return new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime()
+    if (a.unlockedAt) return -1
+    if (b.unlockedAt) return 1
+    const aRatio = (a.progress ?? 0) / (a.target ?? 1)
+    const bRatio = (b.progress ?? 0) / (b.target ?? 1)
+    return bRatio - aRatio
   })
 }
 
