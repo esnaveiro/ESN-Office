@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useState} from 'react'
 import {supabaseClient} from '@/lib/auth-client'
 
 interface Volunteer {
@@ -30,7 +30,7 @@ export function useUserReservations(userId?: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const fetchReservations = async () => {
+  const fetchReservations = useCallback(async () => {
     if (!userId) {
       setReservations([])
       setLoading(false)
@@ -76,11 +76,11 @@ export function useUserReservations(userId?: string) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId])
 
   useEffect(() => {
     fetchReservations()
-  }, [userId])
+  }, [userId, fetchReservations])
 
   return {
     reservations,
