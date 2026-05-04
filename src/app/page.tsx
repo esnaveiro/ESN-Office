@@ -13,7 +13,6 @@ import type {ScheduleSlot} from "@/hooks/useRealtime"
 import {useDashboardData} from "@/hooks/useRealtime"
 import {useAuth} from "@/hooks/useAuth"
 import {useAutoCheckIn} from "@/hooks/useAutoCheckIn"
-import {getCurrentLocation, type LocationData} from "@/lib/presence-client"
 import {supabaseClient} from "@/lib/auth-client"
 import {AutoCheckInSection} from "@/components/auto-check-in-section"
 import {OfficeReservedBanner} from "@/components/office-reserved-banner"
@@ -30,7 +29,6 @@ import {useVolunteerData, type LocalVolunteer} from "@/hooks/useVolunteerData"
 import {useTimeSchedule} from "@/hooks/useTimeSchedule"
 
 type VolunteerStatus = "available" | "dnd" | "break" | "remote"
-type TimeView = "day" | "week"
 
 interface IntervalDetails {
     time: string
@@ -47,15 +45,6 @@ interface IntervalDetails {
 
 const formatDateKey = (date: Date) => format(date, "yyyy-MM-dd")
 
-const getInitials = (name: string) => (
-    name
-        .split(" ")
-        .filter(Boolean)
-        .map(part => part[0] ?? "")
-        .join("")
-        .toUpperCase()
-)
-
 const timeStringToMinutes = (time: string) => {
     const [hoursStr = "0", minutesStr = "0"] = time.split(':')
     const hours = Number.parseInt(hoursStr, 10)
@@ -70,11 +59,8 @@ export default function HomePage() {
     const [selectedVolunteer, setSelectedVolunteer] = useState<LocalVolunteer | null>(null)
     const [autoCheckInOut, setAutoCheckInOut] = useState(false)
 
-    // Wrapper callbacks for type compatibility with child components
     const handleVolunteerClick = (volunteer: LocalVolunteer) => setSelectedVolunteer(volunteer)
-    const handleIntervalClick = (interval: IntervalDetails) => setSelectedInterval(interval)
     const [updatingStatus, setUpdatingStatus] = useState(false)
-    const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null)
 
     // Load auto check-in setting from localStorage
     useEffect(() => {
@@ -89,22 +75,6 @@ export default function HomePage() {
         localStorage.setItem('autoCheckInOut', String(autoCheckInOut))
     }, [autoCheckInOut])
 
-    // Get user's current location when checked in with auto check-in enabled
-    useEffect(() => {
-        if (autoCheckInOut && volunteer?.is_in_office) {
-            getCurrentLocation()
-                .then(location => {
-                    setCurrentLocation(location)
-                })
-                .catch(error => {
-                    console.error('Error getting current location:', error)
-                    setCurrentLocation(null)
-                })
-        } else {
-            setCurrentLocation(null)
-        }
-    }, [autoCheckInOut, volunteer?.is_in_office])
-
     // Auto check-in/out monitoring
     const {isMonitoring} = useAutoCheckIn({
         volunteerId: volunteer?.id || '',
@@ -117,7 +87,7 @@ export default function HomePage() {
     const {volunteers: dbVolunteers, schedules, loading: isLoading, error: hasError} = useDashboardData()
 
     // Fetch office reservations
-    const {upcoming: reservations, loading: reservationsLoading} = useOfficeReservation()
+    const {upcoming: reservations} = useOfficeReservation()
 
     // Process volunteer data using custom hook
     const {volunteers, volunteersInOffice, shuffledVolunteersInOffice, isOfficeOpen} = useVolunteerData(dbVolunteers)
@@ -412,15 +382,11 @@ export default function HomePage() {
                             <div className="space-y-4">
                                 <AutoCheckInSection
                                     autoCheckInOut={autoCheckInOut}
-                                    setAutoCheckInOut={setAutoCheckInOut}
                                     volunteer={volunteer}
-                                    currentLocation={currentLocation}
                                     updatingStatus={updatingStatus}
                                     isMonitoring={isMonitoring}
                                     onStatusChange={handleStatusChange}
                                     onCheckInOutSuccess={refreshVolunteer}
-                                    switchId="auto-checkin-home"
-                                    showDescription={false}
                                 />
                             </div>
                         </div>

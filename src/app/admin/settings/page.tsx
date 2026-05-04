@@ -23,6 +23,7 @@ import {
   Package,
   Plus,
   Settings as SettingsIcon,
+  Users,
   X,
 } from "lucide-react"
 
@@ -53,11 +54,12 @@ interface Settings {
     geolocation_radius_meters: number
     auto_checkout_hour: number
   }
+  volunteer_positions: string[]
 }
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
+  const { user, isAdmin, loading: authLoading } = useAuth()
   const [settings, setSettings] = useState<Settings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -66,13 +68,14 @@ export default function SettingsPage() {
   // Temporary state for editing
   const [newEmail, setNewEmail] = useState("")
   const [newCategory, setNewCategory] = useState("")
+  const [newPosition, setNewPosition] = useState("")
 
-  // Redirect if not authenticated
+  // Redirect if not authenticated or not admin
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/auth/login')
+    if (!authLoading && (!user || !isAdmin)) {
+      router.replace('/')
     }
-  }, [authLoading, user, router])
+  }, [authLoading, user, isAdmin, router])
 
   // Fetch settings
   const fetchSettings = async () => {
@@ -118,7 +121,7 @@ export default function SettingsPage() {
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update settings' })
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'An error occurred while saving settings' })
     } finally {
       setSaving(false)
@@ -166,6 +169,19 @@ export default function SettingsPage() {
     })
   }
 
+  const handleAddPosition = () => {
+    if (!newPosition.trim() || !settings) return
+    const trimmed = newPosition.trim()
+    if (settings.volunteer_positions.includes(trimmed)) return
+    updateSetting('volunteer_positions', [...settings.volunteer_positions, trimmed])
+    setNewPosition("")
+  }
+
+  const handleRemovePosition = (position: string) => {
+    if (!settings) return
+    updateSetting('volunteer_positions', settings.volunteer_positions.filter(p => p !== position))
+  }
+
   const handleOfficeHoursChange = (day: string, field: 'open' | 'close' | 'enabled', value: string | boolean) => {
     if (!settings) return
 
@@ -179,7 +195,7 @@ export default function SettingsPage() {
     updateSetting('office_hours', updatedHours)
   }
 
-  if (authLoading || loading) {
+  if (authLoading || !user || !isAdmin || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -235,7 +251,7 @@ export default function SettingsPage() {
 
         {/* Settings Tabs */}
         <Tabs defaultValue="board" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="board">
               <Mail className="h-4 w-4 mr-2" />
               Board
@@ -255,6 +271,10 @@ export default function SettingsPage() {
             <TabsTrigger value="checkin">
               <MapPin className="h-4 w-4 mr-2" />
               Check-In
+            </TabsTrigger>
+            <TabsTrigger value="volunteers">
+              <Users className="h-4 w-4 mr-2" />
+              Volunteers
             </TabsTrigger>
           </TabsList>
 
@@ -290,7 +310,7 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <Input
                     type="email"
-                    placeholder="board@esnaveiro.org"
+                    placeholder="board@example.org"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddEmail()}
@@ -484,6 +504,46 @@ export default function SettingsPage() {
                       Add
                     </Button>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Volunteers Tab */}
+          <TabsContent value="volunteers">
+            <Card>
+              <CardHeader>
+                <CardTitle>Volunteer Position Types</CardTitle>
+                <CardDescription>
+                  Manage the list of positions available when editing a volunteer
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {(settings.volunteer_positions ?? []).map((position, index) => (
+                    <Badge key={index} variant="secondary" className="px-3 py-1.5 flex items-center gap-2">
+                      {position}
+                      <button
+                        onClick={() => handleRemovePosition(position)}
+                        className="hover:bg-destructive/20 rounded-sm p-0.5 transition-colors"
+                        title="Remove position"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="New position (e.g. Marketing)"
+                    value={newPosition}
+                    onChange={(e) => setNewPosition(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddPosition()}
+                  />
+                  <Button onClick={handleAddPosition} disabled={saving || !newPosition.trim()}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add
+                  </Button>
                 </div>
               </CardContent>
             </Card>
