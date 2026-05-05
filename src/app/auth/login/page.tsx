@@ -137,7 +137,11 @@ function LoginPageInner() {
                     <><LogIn className="mr-2 h-4 w-4" />Sign In</>
                   )}
                 </Button>
-                {!SIGNUP_DISABLED && (
+                {SIGNUP_DISABLED ? (
+                  <p className="text-center text-sm text-muted-foreground">
+                    No account? Contact your local IT manager.
+                  </p>
+                ) : (
                   <p className="text-center text-sm text-muted-foreground">
                     No account?{' '}
                     <Link href="/auth/signup" className="underline hover:text-foreground">
