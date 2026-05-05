@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useSearchParams } from "next/navigation"
 
 const AUTH_PROVIDER = process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? 'esn'
+const SIGNUP_DISABLED = process.env.NEXT_PUBLIC_DISABLE_SIGNUP === 'true'
 
 const ESN_ERROR_MESSAGES: Record<string, string> = {
   invalid_callback: "Invalid authentication callback. Please try again.",
@@ -136,12 +137,14 @@ function LoginPageInner() {
                     <><LogIn className="mr-2 h-4 w-4" />Sign In</>
                   )}
                 </Button>
-                <p className="text-center text-sm text-muted-foreground">
-                  No account?{' '}
-                  <Link href="/auth/signup" className="underline hover:text-foreground">
-                    Sign up
-                  </Link>
-                </p>
+                {!SIGNUP_DISABLED && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    No account?{' '}
+                    <Link href="/auth/signup" className="underline hover:text-foreground">
+                      Sign up
+                    </Link>
+                  </p>
+                )}
               </form>
             )}
           </CardContent>
