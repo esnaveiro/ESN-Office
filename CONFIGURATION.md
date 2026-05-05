@@ -143,17 +143,17 @@ SESSION_SECRET=a3f2...64 hex chars...
 
 # Application
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-ADMIN_EMAILS=you@esnaveiro.org
+ADMIN_EMAILS=you@example.org
 
 # Section identity
-NEXT_PUBLIC_SECTION_NAME=ESN Aveiro
-NEXT_PUBLIC_OFFICE_ADDRESS=Rua Dr. Roberto Frias, Porto
-NEXT_PUBLIC_OFFICE_LATITUDE=41.178554
-NEXT_PUBLIC_OFFICE_LONGITUDE=-8.598039
+NEXT_PUBLIC_SECTION_NAME=My ESN Section
+NEXT_PUBLIC_OFFICE_ADDRESS=Your office address
+NEXT_PUBLIC_OFFICE_LATITUDE=0.000000
+NEXT_PUBLIC_OFFICE_LONGITUDE=0.000000
 
 # Email
 RESEND_API_KEY=re_xxxxxxxxxxxx
-EMAIL_FROM=ESN Aveiro <noreply@esnaveiro.org>
+EMAIL_FROM=My Section <noreply@example.org>
 
 # Cron
 CRON_SECRET=b9e1...64 hex chars...
