@@ -13,6 +13,7 @@ import { signUpWithEmail } from "@/lib/auth-client"
 import { useAuth } from "@/hooks/useAuth"
 
 const AUTH_PROVIDER = process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? 'esn'
+const SIGNUP_DISABLED = process.env.NEXT_PUBLIC_DISABLE_SIGNUP === 'true'
 
 export default function SignupPage() {
   const { user, loading } = useAuth()
@@ -25,9 +26,9 @@ export default function SignupPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // ESN auth — signup is handled by ESN OAuth, redirect to login
+  // ESN auth or signup disabled — redirect to login
   useEffect(() => {
-    if (AUTH_PROVIDER === 'esn') {
+    if (AUTH_PROVIDER === 'esn' || SIGNUP_DISABLED) {
       router.replace("/auth/login")
     }
   }, [router])
@@ -38,7 +39,7 @@ export default function SignupPage() {
     }
   }, [user, loading, router])
 
-  if (AUTH_PROVIDER === 'esn' || loading) {
+  if (AUTH_PROVIDER === 'esn' || SIGNUP_DISABLED || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -33,6 +33,7 @@ All configuration is done through environment variables. Set them in Vercel's pr
 |----------|----------|---------|-------------|
 | `NEXT_PUBLIC_AUTH_PROVIDER` | No | `esn` | `esn` — ESN OAuth via accounts.esn.org. `supabase` — email/password via Supabase Auth. See [Choosing an auth provider](#choosing-an-auth-provider) below. |
 | `NEXT_PUBLIC_APP_URL` | Yes | — | The public URL of your deployment, e.g. `https://esn-aveiro-office.vercel.app`. Used to construct the OAuth redirect URI (`<APP_URL>/auth/callback`) — this is what you register with your national IT Manager. No trailing slash. |
+| `NEXT_PUBLIC_DISABLE_SIGNUP` | No | `false` | Set to `true` to disable self-service sign up when using `supabase` auth. Hides the sign-up link, redirects `/auth/signup` to login, and blocks the signup API endpoint. Accounts must then be created by an admin. Has no effect when `NEXT_PUBLIC_AUTH_PROVIDER=esn`. |
 | `ADMIN_EMAILS` | Yes | Comma-separated list of ESN account emails that receive admin privileges on first login, e.g. `president@esnaveiro.org,tech@esnaveiro.org` |
 
 ### Section identity

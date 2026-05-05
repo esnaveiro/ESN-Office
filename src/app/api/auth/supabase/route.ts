@@ -63,6 +63,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === 'signup') {
+    if (process.env.NEXT_PUBLIC_DISABLE_SIGNUP === 'true') {
+      return NextResponse.json({ error: 'Sign up is disabled' }, { status: 403 })
+    }
+
     const { email, password, name } = await request.json()
 
     if (!email || !password) {
