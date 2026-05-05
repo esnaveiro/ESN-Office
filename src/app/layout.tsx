@@ -14,7 +14,6 @@ export const metadata: Metadata = {
     title: "ESN Office",
     description: "ESN Office presence tracking and availability management",
     manifest: "/manifest.json",
-    themeColor: "#00aeef",
     appleWebApp: {
         capable: true,
         statusBarStyle: "default",

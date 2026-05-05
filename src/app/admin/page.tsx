@@ -8,6 +8,7 @@ import {Label} from "@/components/ui/label"
 import {Badge} from "@/components/ui/badge"
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs"
 import {Checkbox} from "@/components/ui/checkbox"
+import {Switch} from "@/components/ui/switch"
 import {
     Dialog,
     DialogContent,
@@ -22,26 +23,55 @@ import {
     AlertCircle,
     Briefcase,
     CheckCircle,
+    Clock,
     Edit,
     History,
     Loader2,
     LogOut,
     Mail,
+    MapPin,
     Plus,
     Search,
+    Settings as SettingsIcon,
     Shield,
     Trash2,
     User,
     Users,
     X,
 } from "lucide-react"
-import {supabaseClient, signOut} from "@/lib/auth-client"
+import {supabaseClient} from "@/lib/auth-client"
 import {checkOut} from "@/lib/presence-client"
 import {useAuth} from "@/hooks/useAuth"
 import {useRouter} from "next/navigation"
 import Link from "next/link"
 import {SiteHeader} from "@/components/site-header"
 import {EsnRectangles} from "@/components/esn-rectangles"
+
+interface OfficeHours {
+    open: string
+    close: string
+    enabled: boolean
+}
+
+interface OfficeSetting {
+    board_emails: string[]
+    office_hours: Record<string, OfficeHours>
+    reservation_rules: {
+        max_per_user_per_month: number
+        advance_booking_days: number
+        min_duration_minutes: number
+        max_duration_hours: number
+    }
+    inventory_defaults: {
+        low_stock_threshold: number
+        categories: string[]
+    }
+    check_in_settings: {
+        geolocation_radius_meters: number
+        auto_checkout_hour: number
+    }
+    volunteer_positions: string[]
+}
 
 interface Volunteer {
     id: string
@@ -51,17 +81,6 @@ interface Volunteer {
     last_seen: string | null
     created_at: string
     is_in_office: boolean
-}
-
-interface PendingReservation {
-    id: string
-    reserved_by_name: string
-    start_time: string
-    end_time: string
-    reason: string | null
-    send_email_notification: boolean
-    additional_volunteers?: string[]
-    created_at: string
 }
 
 interface InventoryLogDetails {
@@ -102,6 +121,10 @@ export default function AdminPage() {
             body: JSON.stringify({key: 'volunteer_positions', value: updated})
         })
     }
+    // Office settings
+    const [officeSettings, setOfficeSettings] = useState<OfficeSetting | null>(null)
+    const [settingsSaving, setSettingsSaving] = useState(false)
+
     const [volunteers, setVolunteers] = useState<Volunteer[]>([])
     const [allVolunteers, setAllVolunteers] = useState<Volunteer[]>([])
     const [logs, setLogs] = useState<InventoryLog[]>([])
@@ -154,11 +177,7 @@ export default function AdminPage() {
             fetchAllVolunteers(),
             fetchLogs(),
             fetchBoardSettings(),
-            fetch('/api/admin/settings').then(r => r.json()).then(d => {
-                if (d.settings?.volunteer_positions?.length) {
-                    setPositionTypes(d.settings.volunteer_positions)
-                }
-            }).catch(() => {}),
+            fetchOfficeSettings(),
         ])
     }, [user])
 
@@ -411,6 +430,55 @@ export default function AdminPage() {
         }
     }
 
+    const fetchOfficeSettings = async () => {
+        try {
+            const response = await fetch('/api/admin/settings')
+            const data = await response.json()
+            if (response.ok) {
+                setOfficeSettings(data.settings)
+                if (data.settings?.volunteer_positions?.length) {
+                    setPositionTypes(data.settings.volunteer_positions)
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching office settings:', error)
+        }
+    }
+
+    const updateOfficeSetting = async (key: string, value: unknown) => {
+        setSettingsSaving(true)
+        try {
+            const response = await fetch('/api/admin/settings', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({key, value})
+            })
+            if (response.ok) {
+                await fetchOfficeSettings()
+                setMessage({type: 'success', text: 'Settings saved successfully!'})
+                setTimeout(() => setMessage(null), 3000)
+            } else {
+                const data = await response.json()
+                setMessage({type: 'error', text: data.error || 'Failed to save settings'})
+            }
+        } catch (error) {
+            console.error('Error saving settings:', error)
+            setMessage({type: 'error', text: 'Failed to save settings'})
+        } finally {
+            setSettingsSaving(false)
+        }
+    }
+
+    const handleOfficeHoursChange = (day: string, field: 'open' | 'close' | 'enabled', value: string | boolean) => {
+        if (!officeSettings) return
+        updateOfficeSetting('office_hours', {
+            ...officeSettings.office_hours,
+            [day]: {...officeSettings.office_hours[day], [field]: value}
+        })
+    }
+
+
+
     const handleAddEmail = () => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!newEmail.trim()) {
@@ -547,7 +615,7 @@ export default function AdminPage() {
 
                 {/* Tabs */}
                 <Tabs defaultValue="checkouts" className="space-y-6">
-                    <TabsList className="grid grid-cols-4 w-full">
+                    <TabsList className="grid grid-cols-5 w-full">
                         <TabsTrigger value="checkouts">
                             <LogOut className="h-4 w-4 mr-2"/>
                             Check-Outs
@@ -560,18 +628,14 @@ export default function AdminPage() {
                             <History className="h-4 w-4 mr-2"/>
                             Logs
                         </TabsTrigger>
-                        {/*<TabsTrigger value="reservations">*/}
-                        {/*    <Clock className="h-4 w-4 mr-2"/>*/}
-                        {/*    Reservations*/}
-                        {/*</TabsTrigger>*/}
                         <TabsTrigger value="board">
                             <Mail className="h-4 w-4 mr-2"/>
                             Board
                         </TabsTrigger>
-                        {/*<TabsTrigger value="settings">*/}
-                        {/*    <SettingsIcon className="h-4 w-4 mr-2"/>*/}
-                        {/*    Settings*/}
-                        {/*</TabsTrigger>*/}
+                        <TabsTrigger value="settings">
+                            <SettingsIcon className="h-4 w-4 mr-2"/>
+                            Settings
+                        </TabsTrigger>
                     </TabsList>
 
                     {/* Check-Outs Tab */}
@@ -1068,6 +1132,122 @@ export default function AdminPage() {
                                             )}
                                         </Button>
                                     </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Settings Tab */}
+                    <TabsContent value="settings" className="space-y-4">
+                        {/* Office Hours */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Clock className="h-5 w-5"/>
+                                    Office Hours
+                                </CardTitle>
+                                <CardDescription>Set when the office is open and available for reservations</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {officeSettings ? (
+                                    Object.entries(officeSettings.office_hours).map(([day, hours]) => (
+                                        <div key={day} className="flex items-center gap-4 p-4 border rounded-lg">
+                                            <div className="flex items-center gap-3 w-36">
+                                                <Switch
+                                                    checked={hours.enabled}
+                                                    onCheckedChange={(checked) => handleOfficeHoursChange(day, 'enabled', checked)}
+                                                    disabled={settingsSaving}
+                                                />
+                                                <Label className="capitalize font-medium">{day}</Label>
+                                            </div>
+                                            {hours.enabled ? (
+                                                <>
+                                                    <div className="flex items-center gap-2">
+                                                        <Label className="text-sm text-muted-foreground">Open:</Label>
+                                                        <Input
+                                                            type="time"
+                                                            value={hours.open}
+                                                            onChange={(e) => handleOfficeHoursChange(day, 'open', e.target.value)}
+                                                            className="w-32"
+                                                            disabled={settingsSaving}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Label className="text-sm text-muted-foreground">Close:</Label>
+                                                        <Input
+                                                            type="time"
+                                                            value={hours.close}
+                                                            onChange={(e) => handleOfficeHoursChange(day, 'close', e.target.value)}
+                                                            className="w-32"
+                                                            disabled={settingsSaving}
+                                                        />
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground italic">Closed</span>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="flex justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-primary"/>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Check-In Settings */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <MapPin className="h-5 w-5"/>
+                                    Check-In
+                                </CardTitle>
+                                <CardDescription>Geolocation and auto-checkout settings</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {officeSettings ? (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="geo-radius">Geolocation Radius (meters)</Label>
+                                            <Input
+                                                id="geo-radius"
+                                                type="number"
+                                                min="10"
+                                                defaultValue={officeSettings.check_in_settings.geolocation_radius_meters}
+                                                onBlur={(e) => updateOfficeSetting('check_in_settings', {
+                                                    ...officeSettings.check_in_settings,
+                                                    geolocation_radius_meters: parseInt(e.target.value) || 100
+                                                })}
+                                                disabled={settingsSaving}
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Maximum distance from office to prompt check-in
+                                            </p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="auto-checkout">Auto Check-Out Hour (24h)</Label>
+                                            <Input
+                                                id="auto-checkout"
+                                                type="number"
+                                                min="0"
+                                                max="23"
+                                                defaultValue={officeSettings.check_in_settings.auto_checkout_hour}
+                                                onBlur={(e) => updateOfficeSetting('check_in_settings', {
+                                                    ...officeSettings.check_in_settings,
+                                                    auto_checkout_hour: parseInt(e.target.value) || 5
+                                                })}
+                                                disabled={settingsSaving}
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Hour when all users are automatically checked out
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-primary"/>
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>

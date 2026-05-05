@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { Suspense, useState } from "react"
 import Image from "next/image"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -30,7 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin",     label: "Admin",     icon: Shield,          active: p => p.startsWith("/admin"), adminOnly: true },
 ]
 
-export function SiteHeader() {
+function SiteHeaderInner() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -144,5 +144,15 @@ export function SiteHeader() {
         </div>
       </div>
     </header>
+  )
+}
+
+export function SiteHeader() {
+  return (
+    <Suspense fallback={
+      <header className="border-b border-border bg-background sticky top-0 z-50 h-[57px]" />
+    }>
+      <SiteHeaderInner />
+    </Suspense>
   )
 }
