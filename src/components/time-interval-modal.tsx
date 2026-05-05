@@ -2,6 +2,7 @@ import {Card} from "@/components/ui/card"
 import {Button} from "@/components/ui/button"
 import {Badge} from "@/components/ui/badge"
 import {Calendar, Clock, FileText, MapPin, User, Users, X} from "lucide-react"
+import {SECTION_NAME, OFFICE_ADDRESS} from "@/lib/constants"
 
 type VolunteerStatus = "available" | "dnd" | "break" | "remote"
 
@@ -184,7 +185,7 @@ export function TimeIntervalModal({
                     <div className="pt-3 border-t">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <MapPin className="h-4 w-4"/>
-                            ESN Aveiro Office • Campus Universitário de Santiago
+                            {SECTION_NAME} Office • {OFFICE_ADDRESS}
                         </div>
                     </div>
                 </div>

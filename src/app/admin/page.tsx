@@ -8,6 +8,7 @@ import {Label} from "@/components/ui/label"
 import {Badge} from "@/components/ui/badge"
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs"
 import {Checkbox} from "@/components/ui/checkbox"
+import {Switch} from "@/components/ui/switch"
 import {
     Dialog,
     DialogContent,
@@ -22,13 +23,16 @@ import {
     AlertCircle,
     Briefcase,
     CheckCircle,
+    Clock,
     Edit,
     History,
     Loader2,
     LogOut,
     Mail,
+    MapPin,
     Plus,
     Search,
+    Settings as SettingsIcon,
     Shield,
     Trash2,
     User,
@@ -37,8 +41,37 @@ import {
 } from "lucide-react"
 import {supabaseClient} from "@/lib/auth-client"
 import {checkOut} from "@/lib/presence-client"
+import {useAuth} from "@/hooks/useAuth"
+import {useRouter} from "next/navigation"
+import Link from "next/link"
 import {SiteHeader} from "@/components/site-header"
 import {EsnRectangles} from "@/components/esn-rectangles"
+
+interface OfficeHours {
+    open: string
+    close: string
+    enabled: boolean
+}
+
+interface OfficeSetting {
+    board_emails: string[]
+    office_hours: Record<string, OfficeHours>
+    reservation_rules: {
+        max_per_user_per_month: number
+        advance_booking_days: number
+        min_duration_minutes: number
+        max_duration_hours: number
+    }
+    inventory_defaults: {
+        low_stock_threshold: number
+        categories: string[]
+    }
+    check_in_settings: {
+        geolocation_radius_meters: number
+        auto_checkout_hour: number
+    }
+    volunteer_positions: string[]
+}
 
 interface Volunteer {
     id: string
@@ -48,17 +81,6 @@ interface Volunteer {
     last_seen: string | null
     created_at: string
     is_in_office: boolean
-}
-
-interface PendingReservation {
-    id: string
-    reserved_by_name: string
-    start_time: string
-    end_time: string
-    reason: string | null
-    send_email_notification: boolean
-    additional_volunteers?: string[]
-    created_at: string
 }
 
 interface InventoryLogDetails {
@@ -76,11 +98,33 @@ interface InventoryLog {
 
 export default function AdminPage() {
 
-    const [isAuthenticated, setIsAuthenticated] = useState(false)
-    const [checkingAuth, setCheckingAuth] = useState(true)
-    const [password, setPassword] = useState("")
-    const [passwordError, setPasswordError] = useState("")
-    const [isSubmitting, setIsSubmitting] = useState(false)
+    const { user, isAdmin, loading: authLoading } = useAuth()
+    const router = useRouter()
+
+    useEffect(() => {
+        if (!authLoading && (!user || !isAdmin)) {
+            router.replace('/')
+        }
+    }, [user, isAdmin, authLoading, router])
+    const [positionTypes, setPositionTypes] = useState<string[]>(['WPA', 'VP', 'Treasurer', 'Secretary', 'Member'])
+    const [newPositionInput, setNewPositionInput] = useState("")
+
+    const handleAddPositionType = () => {
+        const trimmed = newPositionInput.trim()
+        if (!trimmed || positionTypes.includes(trimmed)) return
+        const updated = [...positionTypes, trimmed]
+        setPositionTypes(updated)
+        setNewPositionInput("")
+        fetch('/api/admin/settings', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key: 'volunteer_positions', value: updated})
+        })
+    }
+    // Office settings
+    const [officeSettings, setOfficeSettings] = useState<OfficeSetting | null>(null)
+    const [settingsSaving, setSettingsSaving] = useState(false)
+
     const [volunteers, setVolunteers] = useState<Volunteer[]>([])
     const [allVolunteers, setAllVolunteers] = useState<Volunteer[]>([])
     const [logs, setLogs] = useState<InventoryLog[]>([])
@@ -117,13 +161,6 @@ export default function AdminPage() {
     const [deleteAllLogs, setDeleteAllLogs] = useState(false)
     const [bulkDeleting, setBulkDeleting] = useState(false)
 
-    // Pending reservations
-    const [, setPendingReservations] = useState<PendingReservation[]>([])
-    const [, setLoadingReservations] = useState(false)
-    const [, setProcessingId] = useState<string | null>(null)
-    const [, setShowApproveDialog] = useState(false)
-    const [approvingReservation, setApprovingReservation] = useState<PendingReservation | null>(null)
-    const [sendNotification, setSendNotification] = useState(false)
 
     // Board settings
     const [boardEmails, setBoardEmails] = useState<string[]>([])
@@ -133,71 +170,16 @@ export default function AdminPage() {
     const [showVolunteerPicker, setShowVolunteerPicker] = useState(false)
     const [volunteerPickerSearch, setVolunteerPickerSearch] = useState("")
 
-    // Check if already authenticated (from server)
     useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                const response = await fetch('/api/admin/auth')
-                const data = await response.json()
-                setIsAuthenticated(data.authenticated)
-            } catch (error) {
-                setIsAuthenticated(false)
-            } finally {
-                setCheckingAuth(false)
-            }
-        }
-        checkAuth()
-    }, [])
-
-    // Fetch data when authenticated
-    useEffect(() => {
-        if (isAuthenticated) {
-            fetchVolunteers()
-            fetchAllVolunteers()
-            fetchLogs()
-            fetchPendingReservations()
-            fetchBoardSettings()
-        }
-    }, [isAuthenticated])
-
-    const handlePasswordSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setIsSubmitting(true)
-        setPasswordError("")
-
-        try {
-            const response = await fetch('/api/admin/auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password }),
-            })
-
-            const data = await response.json()
-
-            if (response.ok && data.success) {
-                setIsAuthenticated(true)
-                setPassword("")
-            } else {
-                setPasswordError(data.error || "Incorrect password")
-            }
-        } catch (error) {
-            setPasswordError("Failed to authenticate. Please try again.")
-        } finally {
-            setIsSubmitting(false)
-        }
-    }
-
-    const handleLogout = async () => {
-        try {
-            await fetch('/api/admin/auth', { method: 'DELETE' })
-            setIsAuthenticated(false)
-            setPassword("")
-        } catch (error) {
-            // Still logout on client side even if server request fails
-            setIsAuthenticated(false)
-            setPassword("")
-        }
-    }
+        if (!user) return
+        Promise.all([
+            fetchVolunteers(),
+            fetchAllVolunteers(),
+            fetchLogs(),
+            fetchBoardSettings(),
+            fetchOfficeSettings(),
+        ])
+    }, [user])
 
     const fetchVolunteers = async () => {
         setLoading(true)
@@ -259,7 +241,7 @@ export default function AdminPage() {
             }))
 
             setLogs(mappedLogs)
-        } catch (error) {
+        } catch {
             console.log('Inventory logs not available')
             setLogs([])
         }
@@ -387,12 +369,8 @@ export default function AdminPage() {
 
         setDeletingLogItem(true)
         try {
-            const {error} = await supabaseClient
-                .from('inventory_logs')
-                .delete()
-                .eq('id', deletingLog.id)
-
-            if (error) throw error
+            const res = await fetch(`/api/inventory/logs?id=${deletingLog.id}`, { method: 'DELETE' })
+            if (!res.ok) throw new Error((await res.json()).error)
 
             setMessage({type: 'success', text: 'Log entry deleted successfully'})
             setShowDeleteLogDialog(false)
@@ -411,38 +389,19 @@ export default function AdminPage() {
 
         try {
             if (deleteAllLogs) {
-                // Delete all logs
-                const {error} = await supabaseClient
-                    .from('inventory_logs')
-                    .delete()
-                    .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all (using a condition that's always true)
-
-                if (error) throw error
-
+                const res = await fetch('/api/inventory/logs?all=true', { method: 'DELETE' })
+                if (!res.ok) throw new Error((await res.json()).error)
                 setMessage({type: 'success', text: 'All logs deleted successfully'})
             } else {
-                // Delete logs older than X days
                 const days = parseInt(bulkDeleteDays)
                 if (isNaN(days) || days < 0) {
                     setMessage({type: 'error', text: 'Please enter a valid number of days'})
                     setBulkDeleting(false)
                     return
                 }
-
-                const cutoffDate = new Date()
-                cutoffDate.setDate(cutoffDate.getDate() - days)
-
-                const {error} = await supabaseClient
-                    .from('inventory_logs')
-                    .delete()
-                    .lt('created_at', cutoffDate.toISOString())
-
-                if (error) throw error
-
-                setMessage({
-                    type: 'success',
-                    text: `Logs older than ${days} days deleted successfully`
-                })
+                const res = await fetch(`/api/inventory/logs?older_than_days=${days}`, { method: 'DELETE' })
+                if (!res.ok) throw new Error((await res.json()).error)
+                setMessage({type: 'success', text: `Logs older than ${days} days deleted successfully`})
             }
 
             setShowBulkDeleteDialog(false)
@@ -452,22 +411,6 @@ export default function AdminPage() {
             setMessage({type: 'error', text: 'Failed to delete logs'})
         } finally {
             setBulkDeleting(false)
-        }
-    }
-
-    const fetchPendingReservations = async () => {
-        try {
-            setLoadingReservations(true)
-            const response = await fetch('/api/admin/reservations')
-            if (!response.ok) throw new Error('Failed to fetch reservations')
-
-            const data = await response.json()
-            setPendingReservations(data.reservations || [])
-        } catch (error) {
-            console.error('Error fetching pending reservations:', error)
-            setMessage({ type: 'error', text: 'Failed to load pending reservations' })
-        } finally {
-            setLoadingReservations(false)
         }
     }
 
@@ -487,80 +430,54 @@ export default function AdminPage() {
         }
     }
 
-    const handleApproveClick = (reservation: PendingReservation) => {
-        setApprovingReservation(reservation)
-        setSendNotification(false)
-        setShowApproveDialog(true)
-    }
-
-    const handleApproveConfirm = async () => {
-        if (!approvingReservation) return
-
+    const fetchOfficeSettings = async () => {
         try {
-            setProcessingId(approvingReservation.id)
-            setMessage(null)
-
-            const response = await fetch(`/api/admin/reservations?id=${approvingReservation.id}&action=approve`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ send_notification: sendNotification })
-            })
-
-            if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.error || 'Failed to approve reservation')
+            const response = await fetch('/api/admin/settings')
+            const data = await response.json()
+            if (response.ok) {
+                setOfficeSettings(data.settings)
+                if (data.settings?.volunteer_positions?.length) {
+                    setPositionTypes(data.settings.volunteer_positions)
+                }
             }
-
-            setMessage({
-                type: 'success',
-                text: `Reservation approved successfully!${sendNotification ? ' Notifications sent to all volunteers.' : ''}`
-            })
-
-            setShowApproveDialog(false)
-            setApprovingReservation(null)
-            setSendNotification(false)
-            await fetchPendingReservations()
         } catch (error) {
-            setMessage({
-                type: 'error',
-                text: error instanceof Error ? error.message : 'Failed to approve reservation'
-            })
-        } finally {
-            setProcessingId(null)
+            console.error('Error fetching office settings:', error)
         }
     }
 
-    const handleReject = async (reservationId: string) => {
+    const updateOfficeSetting = async (key: string, value: unknown) => {
+        setSettingsSaving(true)
         try {
-            setProcessingId(reservationId)
-            setMessage(null)
-
-            const response = await fetch(`/api/admin/reservations?id=${reservationId}&action=reject`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ send_notification: false })
+            const response = await fetch('/api/admin/settings', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({key, value})
             })
-
-            if (!response.ok) {
+            if (response.ok) {
+                await fetchOfficeSettings()
+                setMessage({type: 'success', text: 'Settings saved successfully!'})
+                setTimeout(() => setMessage(null), 3000)
+            } else {
                 const data = await response.json()
-                throw new Error(data.error || 'Failed to reject reservation')
+                setMessage({type: 'error', text: data.error || 'Failed to save settings'})
             }
-
-            setMessage({
-                type: 'success',
-                text: 'Reservation rejected successfully!'
-            })
-
-            await fetchPendingReservations()
         } catch (error) {
-            setMessage({
-                type: 'error',
-                text: error instanceof Error ? error.message : 'Failed to reject reservation'
-            })
+            console.error('Error saving settings:', error)
+            setMessage({type: 'error', text: 'Failed to save settings'})
         } finally {
-            setProcessingId(null)
+            setSettingsSaving(false)
         }
     }
+
+    const handleOfficeHoursChange = (day: string, field: 'open' | 'close' | 'enabled', value: string | boolean) => {
+        if (!officeSettings) return
+        updateOfficeSetting('office_hours', {
+            ...officeSettings.office_hours,
+            [day]: {...officeSettings.office_hours[day], [field]: value}
+        })
+    }
+
+
 
     const handleAddEmail = () => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -633,35 +550,6 @@ export default function AdminPage() {
         }
     }
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        })
-    }
-
-    const formatTime = (dateString: string) => {
-        return new Date(dateString).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        })
-    }
-
-    const getDuration = (start: string, end: string) => {
-        const startDate = new Date(start)
-        const endDate = new Date(end)
-        const diffMs = endDate.getTime() - startDate.getTime()
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-        const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-
-        if (diffHours === 0) return `${diffMinutes}m`
-        if (diffMinutes === 0) return `${diffHours}h`
-        return `${diffHours}h ${diffMinutes}m`
-    }
-
     const filteredVolunteers = useMemo(() => {
         const query = searchQuery.toLowerCase()
         return allVolunteers.filter(v =>
@@ -680,68 +568,12 @@ export default function AdminPage() {
         )
     }, [logs, logSearchQuery])
 
-    // Show loading while checking authentication
-    if (checkingAuth) {
+    if (authLoading || !user || !isAdmin) {
         return (
             <div className="min-h-screen bg-background flex flex-col">
                 <EsnRectangles/>
                 <div className="flex-1 flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-primary"/>
-                </div>
-            </div>
-        )
-    }
-
-    // Password screen
-    if (!isAuthenticated) {
-        return (
-            <div className="min-h-screen bg-background flex flex-col">
-                <EsnRectangles/>
-                <div className="flex-1 flex items-center justify-center p-4">
-                    <Card className="w-full max-w-md">
-                        <CardHeader className="text-center">
-                            <div className="flex justify-center mb-4">
-                                <div className="p-3 rounded-full bg-primary/10">
-                                    <Shield className="h-8 w-8 text-primary"/>
-                                </div>
-                            </div>
-                            <CardTitle className="text-2xl">Admin Access</CardTitle>
-                            <CardDescription>
-                                Enter the admin password to access the admin panel
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="password">Password</Label>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => {
-                                            setPassword(e.target.value)
-                                            setPasswordError("")
-                                        }}
-                                        placeholder="Enter admin password"
-                                        autoFocus
-                                    />
-                                    {passwordError && (
-                                        <p className="text-sm text-destructive">{passwordError}</p>
-                                    )}
-                                </div>
-                                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                                    {isSubmitting ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
-                                            Authenticating...
-                                        </>
-                                    ) : (
-                                        'Access Admin Panel'
-                                    )}
-                                </Button>
-                            </form>
-                        </CardContent>
-                    </Card>
                 </div>
             </div>
         )
@@ -764,10 +596,6 @@ export default function AdminPage() {
                             Manage volunteers, check-outs, and inventory changelog
                         </p>
                     </div>
-                    <Button variant="outline" onClick={handleLogout}>
-                        <LogOut className="h-4 w-4 mr-2"/>
-                        Logout
-                    </Button>
                 </div>
 
                 {/* Message Alert */}
@@ -787,7 +615,7 @@ export default function AdminPage() {
 
                 {/* Tabs */}
                 <Tabs defaultValue="checkouts" className="space-y-6">
-                    <TabsList className="grid grid-cols-4 w-full">
+                    <TabsList className="grid grid-cols-5 w-full">
                         <TabsTrigger value="checkouts">
                             <LogOut className="h-4 w-4 mr-2"/>
                             Check-Outs
@@ -800,18 +628,14 @@ export default function AdminPage() {
                             <History className="h-4 w-4 mr-2"/>
                             Logs
                         </TabsTrigger>
-                        {/*<TabsTrigger value="reservations">*/}
-                        {/*    <Clock className="h-4 w-4 mr-2"/>*/}
-                        {/*    Reservations*/}
-                        {/*</TabsTrigger>*/}
                         <TabsTrigger value="board">
                             <Mail className="h-4 w-4 mr-2"/>
                             Board
                         </TabsTrigger>
-                        {/*<TabsTrigger value="settings">*/}
-                        {/*    <SettingsIcon className="h-4 w-4 mr-2"/>*/}
-                        {/*    Settings*/}
-                        {/*</TabsTrigger>*/}
+                        <TabsTrigger value="settings">
+                            <SettingsIcon className="h-4 w-4 mr-2"/>
+                            Settings
+                        </TabsTrigger>
                     </TabsList>
 
                     {/* Check-Outs Tab */}
@@ -909,24 +733,32 @@ export default function AdminPage() {
                                                         )}
                                                     </div>
                                                 </div>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleCheckOut(volunteer.id, volunteer.name)}
-                                                    disabled={checkingOut === volunteer.id}
-                                                >
-                                                    {checkingOut === volunteer.id ? (
-                                                        <>
-                                                            <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
-                                                            Checking out...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <LogOut className="h-4 w-4 mr-2"/>
-                                                            Check Out
-                                                        </>
-                                                    )}
-                                                </Button>
+                                                <div className="flex gap-2">
+                                                    <Link href={`/profile?userId=${volunteer.id}`} target="_blank">
+                                                        <Button variant="outline" size="sm">
+                                                            <User className="h-4 w-4 mr-2"/>
+                                                            Profile
+                                                        </Button>
+                                                    </Link>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleCheckOut(volunteer.id, volunteer.name)}
+                                                        disabled={checkingOut === volunteer.id}
+                                                    >
+                                                        {checkingOut === volunteer.id ? (
+                                                            <>
+                                                                <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
+                                                                Checking out...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <LogOut className="h-4 w-4 mr-2"/>
+                                                                Check Out
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -937,6 +769,48 @@ export default function AdminPage() {
 
                     {/* Account Management Tab */}
                     <TabsContent value="accounts" className="space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Position Types</CardTitle>
+                                <CardDescription>Manage the positions available when editing a volunteer</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex flex-wrap gap-2">
+                                    {positionTypes.map((p) => (
+                                        <Badge key={p} variant="secondary" className="px-3 py-1.5 flex items-center gap-2">
+                                            {p}
+                                            <button
+                                                onClick={() => {
+                                                    const updated = positionTypes.filter(x => x !== p)
+                                                    setPositionTypes(updated)
+                                                    fetch('/api/admin/settings', {
+                                                        method: 'PUT',
+                                                        headers: {'Content-Type': 'application/json'},
+                                                        body: JSON.stringify({key: 'volunteer_positions', value: updated})
+                                                    })
+                                                }}
+                                                className="hover:bg-destructive/20 rounded-sm p-0.5 transition-colors"
+                                            >
+                                                <X className="h-3 w-3"/>
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="New position (e.g. Marketing)"
+                                        value={newPositionInput}
+                                        onChange={e => setNewPositionInput(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddPositionType()}
+                                        className="max-w-xs"
+                                    />
+                                    <Button variant="outline" onClick={handleAddPositionType} disabled={!newPositionInput.trim()}>
+                                        <Plus className="h-4 w-4 mr-2"/>
+                                        Add
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
                         <Card>
                             <CardHeader>
                                 <div className="flex items-center justify-between">
@@ -993,6 +867,11 @@ export default function AdminPage() {
                                                             </div>
                                                         </div>
                                                         <div className="flex gap-2">
+                                                            <Link href={`/profile?userId=${v.id}`} target="_blank">
+                                                                <Button variant="outline" size="sm">
+                                                                    <User className="h-4 w-4"/>
+                                                                </Button>
+                                                            </Link>
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
@@ -1101,118 +980,6 @@ export default function AdminPage() {
                         </Card>
                     </TabsContent>
 
-                    {/* Pending Reservations Tab */}
-                    {/*<TabsContent value="reservations" className="space-y-4">*/}
-                    {/*    <Card>*/}
-                    {/*        <CardHeader>*/}
-                    {/*            <div className="flex items-center justify-between">*/}
-                    {/*                <CardTitle>Pending Reservations</CardTitle>*/}
-                    {/*                <Badge>{pendingReservations.length} pending</Badge>*/}
-                    {/*            </div>*/}
-                    {/*            <CardDescription>*/}
-                    {/*                Review and approve or reject office reservation requests*/}
-                    {/*            </CardDescription>*/}
-                    {/*        </CardHeader>*/}
-                    {/*        <CardContent className="space-y-4">*/}
-                    {/*            {loadingReservations ? (*/}
-                    {/*                <div className="py-12 flex items-center justify-center">*/}
-                    {/*                    <Loader2 className="h-8 w-8 animate-spin text-primary"/>*/}
-                    {/*                </div>*/}
-                    {/*            ) : pendingReservations.length === 0 ? (*/}
-                    {/*                <div className="text-center py-12 text-muted-foreground">*/}
-                    {/*                    <Clock className="h-12 w-12 mx-auto mb-3 opacity-50"/>*/}
-                    {/*                    <p>No pending reservations</p>*/}
-                    {/*                </div>*/}
-                    {/*            ) : (*/}
-                    {/*                <div className="space-y-3">*/}
-                    {/*                    {pendingReservations.map((reservation) => (*/}
-                    {/*                        <Card key={reservation.id} className="border-2">*/}
-                    {/*                            <CardContent className="p-4">*/}
-                    {/*                                <div className="space-y-4">*/}
-                    {/*                                    /!* Reservation Header *!/*/}
-                    {/*                                    <div className="flex items-start justify-between">*/}
-                    {/*                                        <div>*/}
-                    {/*                                            <h3 className="font-semibold text-lg flex items-center gap-2">*/}
-                    {/*                                                <User className="h-4 w-4"/>*/}
-                    {/*                                                {reservation.reserved_by_name}*/}
-                    {/*                                            </h3>*/}
-                    {/*                                            <p className="text-xs text-muted-foreground">*/}
-                    {/*                                                Submitted on {formatDate(reservation.created_at)}*/}
-                    {/*                                            </p>*/}
-                    {/*                                        </div>*/}
-                    {/*                                        <Badge variant="outline" className="bg-secondary/10 border-secondary/20 text-secondary-foreground">*/}
-                    {/*                                            Pending*/}
-                    {/*                                        </Badge>*/}
-                    {/*                                    </div>*/}
-
-                    {/*                                    /!* Reservation Details *!/*/}
-                    {/*                                    <div className="grid gap-3">*/}
-                    {/*                                        <div className="flex items-center gap-2 text-sm">*/}
-                    {/*                                            <Calendar className="h-4 w-4 text-muted-foreground"/>*/}
-                    {/*                                            <span className="font-medium">{formatDate(reservation.start_time)}</span>*/}
-                    {/*                                        </div>*/}
-                    {/*                                        <div className="flex items-center gap-2 text-sm">*/}
-                    {/*                                            <Clock className="h-4 w-4 text-muted-foreground"/>*/}
-                    {/*                                            <span>{formatTime(reservation.start_time)} - {formatTime(reservation.end_time)}</span>*/}
-                    {/*                                            <Badge variant="secondary" className="ml-2">*/}
-                    {/*                                                {getDuration(reservation.start_time, reservation.end_time)}*/}
-                    {/*                                            </Badge>*/}
-                    {/*                                        </div>*/}
-                    {/*                                        {reservation.reason && (*/}
-                    {/*                                            <div className="flex items-start gap-2 text-sm">*/}
-                    {/*                                                <FileText className="h-4 w-4 text-muted-foreground mt-0.5"/>*/}
-                    {/*                                                <span className="text-muted-foreground">{reservation.reason}</span>*/}
-                    {/*                                            </div>*/}
-                    {/*                                        )}*/}
-                    {/*                                        {reservation.additional_volunteers && reservation.additional_volunteers.length > 0 && (*/}
-                    {/*                                            <div className="flex items-center gap-2 text-sm">*/}
-                    {/*                                                <Users className="h-4 w-4 text-muted-foreground"/>*/}
-                    {/*                                                <span className="text-muted-foreground">*/}
-                    {/*                                                    +{reservation.additional_volunteers.length} additional volunteer{reservation.additional_volunteers.length > 1 ? 's' : ''}*/}
-                    {/*                                                </span>*/}
-                    {/*                                            </div>*/}
-                    {/*                                        )}*/}
-                    {/*                                        {reservation.send_email_notification && (*/}
-                    {/*                                            <div className="flex items-center gap-2 text-sm">*/}
-                    {/*                                                <Mail className="h-4 w-4 text-muted-foreground"/>*/}
-                    {/*                                                <span className="text-muted-foreground">Will notify all volunteers</span>*/}
-                    {/*                                            </div>*/}
-                    {/*                                        )}*/}
-                    {/*                                    </div>*/}
-
-                    {/*                                    /!* Action Buttons *!/*/}
-                    {/*                                    <div className="flex gap-2 pt-2">*/}
-                    {/*                                        <Button*/}
-                    {/*                                            className="flex-1"*/}
-                    {/*                                            onClick={() => handleApproveClick(reservation)}*/}
-                    {/*                                            disabled={processingId === reservation.id}*/}
-                    {/*                                        >*/}
-                    {/*                                            <Check className="h-4 w-4 mr-2"/>*/}
-                    {/*                                            Approve*/}
-                    {/*                                        </Button>*/}
-                    {/*                                        <Button*/}
-                    {/*                                            variant="destructive"*/}
-                    {/*                                            className="flex-1"*/}
-                    {/*                                            onClick={() => handleReject(reservation.id)}*/}
-                    {/*                                            disabled={processingId === reservation.id}*/}
-                    {/*                                        >*/}
-                    {/*                                            {processingId === reservation.id ? (*/}
-                    {/*                                                <Loader2 className="h-4 w-4 mr-2 animate-spin"/>*/}
-                    {/*                                            ) : (*/}
-                    {/*                                                <X className="h-4 w-4 mr-2"/>*/}
-                    {/*                                            )}*/}
-                    {/*                                            Reject*/}
-                    {/*                                        </Button>*/}
-                    {/*                                    </div>*/}
-                    {/*                                </div>*/}
-                    {/*                            </CardContent>*/}
-                    {/*                        </Card>*/}
-                    {/*                    ))}*/}
-                    {/*                </div>*/}
-                    {/*            )}*/}
-                    {/*        </CardContent>*/}
-                    {/*    </Card>*/}
-                    {/*</TabsContent>*/}
 
                     {/* Board Settings Tab */}
                     <TabsContent value="board" className="space-y-4">
@@ -1371,107 +1138,121 @@ export default function AdminPage() {
                     </TabsContent>
 
                     {/* Settings Tab */}
-                    {/*<TabsContent value="settings" className="space-y-4">*/}
-                    {/*    <Card>*/}
-                    {/*        <CardHeader>*/}
-                    {/*            <div className="flex items-center justify-between">*/}
-                    {/*                <div>*/}
-                    {/*                    <CardTitle>System Settings</CardTitle>*/}
-                    {/*                    <CardDescription>*/}
-                    {/*                        Configure office hours, reservation rules, inventory defaults, and more*/}
-                    {/*                    </CardDescription>*/}
-                    {/*                </div>*/}
-                    {/*                <Button onClick={() => window.location.href = '/admin/settings'}>*/}
-                    {/*                    <SettingsIcon className="h-4 w-4 mr-2"/>*/}
-                    {/*                    Open Settings*/}
-                    {/*                </Button>*/}
-                    {/*            </div>*/}
-                    {/*        </CardHeader>*/}
-                    {/*        <CardContent>*/}
-                    {/*            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">*/}
-                    {/*                <Card className="border-2">*/}
-                    {/*                    <CardContent className="p-4">*/}
-                    {/*                        <div className="flex items-start gap-3">*/}
-                    {/*                            <div className="p-2 rounded-lg bg-primary/10">*/}
-                    {/*                                <Mail className="h-5 w-5 text-primary"/>*/}
-                    {/*                            </div>*/}
-                    {/*                            <div className="flex-1">*/}
-                    {/*                                <h3 className="font-semibold mb-1">Board Members</h3>*/}
-                    {/*                                <p className="text-sm text-muted-foreground">*/}
-                    {/*                                    Manage board member emails for approval requests*/}
-                    {/*                                </p>*/}
-                    {/*                            </div>*/}
-                    {/*                        </div>*/}
-                    {/*                    </CardContent>*/}
-                    {/*                </Card>*/}
+                    <TabsContent value="settings" className="space-y-4">
+                        {/* Office Hours */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Clock className="h-5 w-5"/>
+                                    Office Hours
+                                </CardTitle>
+                                <CardDescription>Set when the office is open and available for reservations</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {officeSettings ? (
+                                    Object.entries(officeSettings.office_hours).map(([day, hours]) => (
+                                        <div key={day} className="flex items-center gap-4 p-4 border rounded-lg">
+                                            <div className="flex items-center gap-3 w-36">
+                                                <Switch
+                                                    checked={hours.enabled}
+                                                    onCheckedChange={(checked) => handleOfficeHoursChange(day, 'enabled', checked)}
+                                                    disabled={settingsSaving}
+                                                />
+                                                <Label className="capitalize font-medium">{day}</Label>
+                                            </div>
+                                            {hours.enabled ? (
+                                                <>
+                                                    <div className="flex items-center gap-2">
+                                                        <Label className="text-sm text-muted-foreground">Open:</Label>
+                                                        <Input
+                                                            type="time"
+                                                            value={hours.open}
+                                                            onChange={(e) => handleOfficeHoursChange(day, 'open', e.target.value)}
+                                                            className="w-32"
+                                                            disabled={settingsSaving}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Label className="text-sm text-muted-foreground">Close:</Label>
+                                                        <Input
+                                                            type="time"
+                                                            value={hours.close}
+                                                            onChange={(e) => handleOfficeHoursChange(day, 'close', e.target.value)}
+                                                            className="w-32"
+                                                            disabled={settingsSaving}
+                                                        />
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground italic">Closed</span>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="flex justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-primary"/>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
 
-                    {/*                <Card className="border-2">*/}
-                    {/*                    <CardContent className="p-4">*/}
-                    {/*                        <div className="flex items-start gap-3">*/}
-                    {/*                            <div className="p-2 rounded-lg bg-primary/10">*/}
-                    {/*                                <Clock className="h-5 w-5 text-primary"/>*/}
-                    {/*                            </div>*/}
-                    {/*                            <div className="flex-1">*/}
-                    {/*                                <h3 className="font-semibold mb-1">Office Hours</h3>*/}
-                    {/*                                <p className="text-sm text-muted-foreground">*/}
-                    {/*                                    Set when the office is open and available*/}
-                    {/*                                </p>*/}
-                    {/*                            </div>*/}
-                    {/*                        </div>*/}
-                    {/*                    </CardContent>*/}
-                    {/*                </Card>*/}
+                        {/* Check-In Settings */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <MapPin className="h-5 w-5"/>
+                                    Check-In
+                                </CardTitle>
+                                <CardDescription>Geolocation and auto-checkout settings</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {officeSettings ? (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="geo-radius">Geolocation Radius (meters)</Label>
+                                            <Input
+                                                id="geo-radius"
+                                                type="number"
+                                                min="10"
+                                                defaultValue={officeSettings.check_in_settings.geolocation_radius_meters}
+                                                onBlur={(e) => updateOfficeSetting('check_in_settings', {
+                                                    ...officeSettings.check_in_settings,
+                                                    geolocation_radius_meters: parseInt(e.target.value) || 100
+                                                })}
+                                                disabled={settingsSaving}
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Maximum distance from office to prompt check-in
+                                            </p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="auto-checkout">Auto Check-Out Hour (24h)</Label>
+                                            <Input
+                                                id="auto-checkout"
+                                                type="number"
+                                                min="0"
+                                                max="23"
+                                                defaultValue={officeSettings.check_in_settings.auto_checkout_hour}
+                                                onBlur={(e) => updateOfficeSetting('check_in_settings', {
+                                                    ...officeSettings.check_in_settings,
+                                                    auto_checkout_hour: parseInt(e.target.value) || 5
+                                                })}
+                                                disabled={settingsSaving}
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Hour when all users are automatically checked out
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-primary"/>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                    {/*                <Card className="border-2">*/}
-                    {/*                    <CardContent className="p-4">*/}
-                    {/*                        <div className="flex items-start gap-3">*/}
-                    {/*                            <div className="p-2 rounded-lg bg-primary/10">*/}
-                    {/*                                <Calendar className="h-5 w-5 text-primary"/>*/}
-                    {/*                            </div>*/}
-                    {/*                            <div className="flex-1">*/}
-                    {/*                                <h3 className="font-semibold mb-1">Reservation Rules</h3>*/}
-                    {/*                                <p className="text-sm text-muted-foreground">*/}
-                    {/*                                    Configure limits and rules for reservations*/}
-                    {/*                                </p>*/}
-                    {/*                            </div>*/}
-                    {/*                        </div>*/}
-                    {/*                    </CardContent>*/}
-                    {/*                </Card>*/}
-
-                    {/*                <Card className="border-2">*/}
-                    {/*                    <CardContent className="p-4">*/}
-                    {/*                        <div className="flex items-start gap-3">*/}
-                    {/*                            <div className="p-2 rounded-lg bg-primary/10">*/}
-                    {/*                                <Briefcase className="h-5 w-5 text-primary"/>*/}
-                    {/*                            </div>*/}
-                    {/*                            <div className="flex-1">*/}
-                    {/*                                <h3 className="font-semibold mb-1">Inventory Defaults</h3>*/}
-                    {/*                                <p className="text-sm text-muted-foreground">*/}
-                    {/*                                    Default thresholds and categories*/}
-                    {/*                                </p>*/}
-                    {/*                            </div>*/}
-                    {/*                        </div>*/}
-                    {/*                    </CardContent>*/}
-                    {/*                </Card>*/}
-
-                    {/*                <Card className="border-2">*/}
-                    {/*                    <CardContent className="p-4">*/}
-                    {/*                        <div className="flex items-start gap-3">*/}
-                    {/*                            <div className="p-2 rounded-lg bg-primary/10">*/}
-                    {/*                                <CheckCircle className="h-5 w-5 text-primary"/>*/}
-                    {/*                            </div>*/}
-                    {/*                            <div className="flex-1">*/}
-                    {/*                                <h3 className="font-semibold mb-1">Check-In Settings</h3>*/}
-                    {/*                                <p className="text-sm text-muted-foreground">*/}
-                    {/*                                    Geolocation radius and auto-checkout hour*/}
-                    {/*                                </p>*/}
-                    {/*                            </div>*/}
-                    {/*                        </div>*/}
-                    {/*                    </CardContent>*/}
-                    {/*                </Card>*/}
-                    {/*            </div>*/}
-                    {/*        </CardContent>*/}
-                    {/*    </Card>*/}
-                    {/*</TabsContent>*/}
                 </Tabs>
             </div>
 
@@ -1512,17 +1293,27 @@ export default function AdminPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">None</SelectItem>
-                                    <SelectItem value="WPA">WPA</SelectItem>
-                                    <SelectItem value="VP">VP</SelectItem>
-                                    <SelectItem value="Treasurer">Treasurer</SelectItem>
-                                    <SelectItem value="Secretary">Secretary</SelectItem>
-                                    <SelectItem value="Member">Member</SelectItem>
+                                    {positionTypes.map(p => (
+                                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button
+                            variant="outline"
+                            className="sm:mr-auto"
+                            onClick={() => {
+                                if (editingVolunteer) {
+                                    window.open(`/profile?userId=${editingVolunteer.id}`, '_blank', 'noopener')
+                                }
+                            }}
+                        >
+                            <User className="h-4 w-4 mr-2"/>
+                            View Profile
+                        </Button>
                         <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={saving}>
                             Cancel
                         </Button>
@@ -1730,86 +1521,6 @@ export default function AdminPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Approve Reservation Dialog */}
-            {/*<Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>*/}
-            {/*    <DialogContent>*/}
-            {/*        <DialogHeader>*/}
-            {/*            <DialogTitle className="flex items-center gap-2">*/}
-            {/*                <Check className="h-5 w-5 text-primary"/>*/}
-            {/*                Approve Reservation*/}
-            {/*            </DialogTitle>*/}
-            {/*            <DialogDescription>*/}
-            {/*                Confirm approval and choose whether to notify all volunteers*/}
-            {/*            </DialogDescription>*/}
-            {/*        </DialogHeader>*/}
-
-            {/*        {approvingReservation && (*/}
-            {/*            <div className="space-y-4">*/}
-            {/*                <div className="p-4 bg-muted rounded-lg space-y-2">*/}
-            {/*                    <p className="font-semibold">{approvingReservation.reserved_by_name}</p>*/}
-            {/*                    <div className="text-sm text-muted-foreground space-y-1">*/}
-            {/*                        <div>{formatDate(approvingReservation.start_time)}</div>*/}
-            {/*                        <div>{formatTime(approvingReservation.start_time)} - {formatTime(approvingReservation.end_time)}</div>*/}
-            {/*                        {approvingReservation.reason && (*/}
-            {/*                            <div className="mt-2">*/}
-            {/*                                <strong>Reason:</strong> {approvingReservation.reason}*/}
-            {/*                            </div>*/}
-            {/*                        )}*/}
-            {/*                    </div>*/}
-            {/*                </div>*/}
-
-            {/*                <div className="flex items-start space-x-3 p-4 border rounded-lg">*/}
-            {/*                    <Checkbox*/}
-            {/*                        id="send-notification"*/}
-            {/*                        checked={sendNotification}*/}
-            {/*                        onCheckedChange={(checked) => setSendNotification(checked === true)}*/}
-            {/*                    />*/}
-            {/*                    <div className="flex-1 space-y-1">*/}
-            {/*                        <Label*/}
-            {/*                            htmlFor="send-notification"*/}
-            {/*                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"*/}
-            {/*                        >*/}
-            {/*                            Notify all volunteers*/}
-            {/*                        </Label>*/}
-            {/*                        <p className="text-sm text-muted-foreground">*/}
-            {/*                            Send email notification about this reservation to all ESN volunteers*/}
-            {/*                        </p>*/}
-            {/*                    </div>*/}
-            {/*                </div>*/}
-            {/*            </div>*/}
-            {/*        )}*/}
-
-            {/*        <DialogFooter>*/}
-            {/*            <Button*/}
-            {/*                variant="outline"*/}
-            {/*                onClick={() => {*/}
-            {/*                    setShowApproveDialog(false)*/}
-            {/*                    setApprovingReservation(null)*/}
-            {/*                    setSendNotification(false)*/}
-            {/*                }}*/}
-            {/*                disabled={processingId !== null}*/}
-            {/*            >*/}
-            {/*                Cancel*/}
-            {/*            </Button>*/}
-            {/*            <Button*/}
-            {/*                onClick={handleApproveConfirm}*/}
-            {/*                disabled={processingId !== null}*/}
-            {/*            >*/}
-            {/*                {processingId !== null ? (*/}
-            {/*                    <>*/}
-            {/*                        <Loader2 className="h-4 w-4 mr-2 animate-spin"/>*/}
-            {/*                        Approving...*/}
-            {/*                    </>*/}
-            {/*                ) : (*/}
-            {/*                    <>*/}
-            {/*                        <Check className="h-4 w-4 mr-2"/>*/}
-            {/*                        Approve Reservation*/}
-            {/*                    </>*/}
-            {/*                )}*/}
-            {/*            </Button>*/}
-            {/*        </DialogFooter>*/}
-            {/*    </DialogContent>*/}
-            {/*</Dialog>*/}
         </div>
     )
 }

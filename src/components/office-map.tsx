@@ -1,8 +1,9 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {Card} from "@/components/ui/card";
 import {Users} from "lucide-react";
+import {SECTION_NAME} from "@/lib/constants";
 
 type VolunteerStatus = "available" | "dnd" | "break" | "remote";
 
@@ -29,9 +30,8 @@ interface OfficeMapProps {
 
 export function OfficeMap({volunteers, onVolunteerClick}: OfficeMapProps) {
     const [volunteerPositions, setVolunteerPositions] = useState<Record<string, Position>>({});
-    const [hoveredVolunteer, setHoveredVolunteer] = useState<string | null>(null);
 
-    const volunteersInOffice = volunteers.filter(v => v.isInOffice);
+    const volunteersInOffice = useMemo(() => volunteers.filter(v => v.isInOffice), [volunteers]);
 
     // Generate random positions for volunteers based on actual office layout
     useEffect(() => {
@@ -111,7 +111,7 @@ export function OfficeMap({volunteers, onVolunteerClick}: OfficeMapProps) {
         });
 
         setVolunteerPositions(newPositions);
-    }, [volunteersInOffice.length, volunteersInOffice.map(v => v.id).join(',')]);
+    }, [volunteersInOffice]);
 
     const getStatusColor = (status: VolunteerStatus) => {
         switch (status) {
@@ -183,7 +183,7 @@ export function OfficeMap({volunteers, onVolunteerClick}: OfficeMapProps) {
             <div className="space-y-6">
                 {/* Header */}
                 <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2">ESN Aveiro Office Layout</h3>
+                    <h3 className="text-lg font-semibold mb-2">{SECTION_NAME} Office Layout</h3>
                     <p className="text-sm text-muted-foreground">
                         Live view of volunteer positions in the office
                     </p>

@@ -2,47 +2,29 @@
 
 import React, {useState} from "react"
 import {Button} from "@/components/ui/button"
-import {Switch} from "@/components/ui/switch"
 import {Label} from "@/components/ui/label"
 import {Coffee, Moon} from "lucide-react"
-import {OfficeLocationMap} from "@/components/office-location-map"
 import {CheckInOutButton} from "@/components/check-in-out-button"
-import type {LocationData} from "@/lib/presence-client"
 import type {Database} from "@/lib/database.types"
 
 type Volunteer = Database['public']['Tables']['volunteers']['Row']
 
 interface AutoCheckInSectionProps {
-    // State props
     autoCheckInOut: boolean
-    setAutoCheckInOut: (value: boolean) => void
     volunteer: Volunteer
-    currentLocation: LocationData | null
     updatingStatus: boolean
     isMonitoring: boolean
-
-    // Callbacks
     onStatusChange: (status: 'available' | 'dnd' | 'break') => void
     onCheckInOutSuccess: () => void
-
-    // Optional customization
-    switchId?: string
-    showDescription?: boolean
-    description?: string
 }
 
 export function AutoCheckInSection({
                                        autoCheckInOut,
-                                       setAutoCheckInOut,
                                        volunteer,
-                                       currentLocation,
                                        updatingStatus,
                                        isMonitoring,
                                        onStatusChange,
                                        onCheckInOutSuccess,
-                                       switchId = "auto-checkin",
-                                       showDescription = true,
-                                       description
                                    }: AutoCheckInSectionProps) {
     // Local optimistic state for status
     const [optimisticStatus, setOptimisticStatus] = useState<'available' | 'dnd' | 'break' | null>(null)

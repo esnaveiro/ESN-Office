@@ -36,7 +36,6 @@ interface OfficeScheduleCardProps {
 
 export function OfficeScheduleCard({
   timeView,
-  currentDate,
   timeIntervals,
   currentHour,
   currentMinute,

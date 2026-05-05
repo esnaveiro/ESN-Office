@@ -15,6 +15,8 @@ import {SiteHeader} from "@/components/site-header";
 import {EsnRectangles} from "@/components/esn-rectangles";
 import {useRouter, useSearchParams} from "next/navigation";
 
+const AUTH_PROVIDER = process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? 'esn'
+
 interface ViewedVolunteer {
     id: string
     name: string
@@ -42,6 +44,52 @@ function ProfileContent() {
 
     // Profile form state
     const [name, setName] = useState(volunteer?.name || "")
+
+    // Password change state (Supabase provider only)
+    const [currentPassword, setCurrentPassword] = useState("")
+    const [newPassword, setNewPassword] = useState("")
+    const [confirmPassword, setConfirmPassword] = useState("")
+    const [passwordLoading, setPasswordLoading] = useState(false)
+    const [passwordSuccess, setPasswordSuccess] = useState(false)
+    const [passwordError, setPasswordError] = useState<string | null>(null)
+
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setPasswordError(null)
+        setPasswordSuccess(false)
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError("Passwords do not match")
+            return
+        }
+        if (newPassword.length < 8) {
+            setPasswordError("Password must be at least 8 characters")
+            return
+        }
+
+        setPasswordLoading(true)
+        try {
+            // Re-authenticate with current password first
+            const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+                email: volunteer!.email,
+                password: currentPassword,
+            })
+            if (signInError) {
+                setPasswordError("Current password is incorrect")
+                return
+            }
+            const { error: updateError } = await supabaseClient.auth.updateUser({ password: newPassword })
+            if (updateError) throw updateError
+            setPasswordSuccess(true)
+            setCurrentPassword("")
+            setNewPassword("")
+            setConfirmPassword("")
+        } catch (err) {
+            setPasswordError(err instanceof Error ? err.message : "Failed to update password")
+        } finally {
+            setPasswordLoading(false)
+        }
+    }
 
     // Fetch viewed user's data
     useEffect(() => {
@@ -77,10 +125,6 @@ function ProfileContent() {
         }
     }, [volunteer?.name])
 
-    // Password form state
-    const [, setCurrentPassword] = useState("")
-    const [newPassword, setNewPassword] = useState("")
-    const [confirmPassword, setConfirmPassword] = useState("")
 
     const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -110,50 +154,6 @@ function ProfileContent() {
                 setError(error.message || "Failed to update profile")
             } else {
                 setError("Failed to update profile")
-            }
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handlePasswordUpdate = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-        setError(null)
-        setSuccess(false)
-
-        if (newPassword !== confirmPassword) {
-            setError("New passwords do not match")
-            setLoading(false)
-            return
-        }
-
-        if (newPassword.length < 6) {
-            setError("Password must be at least 6 characters")
-            setLoading(false)
-            return
-        }
-
-        try {
-            if (!volunteer?.id) {
-                throw new Error("Volunteer profile is not available yet")
-            }
-            const {error} = await supabaseClient.auth.updateUser({
-                password: newPassword
-            })
-
-            if (error) throw error
-
-            setSuccess(true)
-            setCurrentPassword("")
-            setNewPassword("")
-            setConfirmPassword("")
-            setTimeout(() => setSuccess(false), 3000)
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                setError(error.message || "Failed to update password")
-            } else {
-                setError("Failed to update password")
             }
         } finally {
             setLoading(false)
@@ -266,12 +266,7 @@ function ProfileContent() {
 
             <div className="container mx-auto px-4 py-8 max-w-3xl">
                 {/* Header */}
-                <div className="flex items-center gap-4 mb-6">
-                    {isViewingOtherUser && (
-                        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                            <ArrowLeft className="h-5 w-5"/>
-                        </Button>
-                    )}
+                <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-3xl font-bold flex items-center gap-2">
                             <User className="h-8 w-8 text-primary" />
@@ -381,7 +376,7 @@ function ProfileContent() {
                         </CardContent>
                     </Card>
                 ) : (
-                    <Tabs defaultValue="profile" className="space-y-6">
+                    <Tabs defaultValue={searchParams.get('tab') ?? 'profile'} className="space-y-6">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="profile">Profile Information</TabsTrigger>
                             <TabsTrigger value="security">Security</TabsTrigger>
@@ -487,50 +482,75 @@ function ProfileContent() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <form onSubmit={handlePasswordUpdate} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="newPassword">New Password</Label>
-                                        <Input
-                                            id="newPassword"
-                                            type="password"
-                                            value={newPassword}
-                                            onChange={(e) => setNewPassword(e.target.value)}
-                                            placeholder="••••••••"
-                                            required
-                                            disabled={loading}
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            Must be at least 6 characters long
+                                {AUTH_PROVIDER === 'esn' ? (
+                                    <div className="space-y-3">
+                                        <p className="text-sm text-muted-foreground">
+                                            Your password is managed by your ESN account. To change it, visit your ESN profile.
                                         </p>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => window.open('https://accounts.esn.org/user', '_blank', 'noopener')}
+                                        >
+                                            Manage on ESN Accounts
+                                        </Button>
                                     </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                                        <Input
-                                            id="confirmPassword"
-                                            type="password"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            placeholder="••••••••"
-                                            required
-                                            disabled={loading}
-                                        />
-                                    </div>
-
-                                    <Button type="submit" disabled={loading} className="w-full md:w-auto">
-                                        {loading ? (
-                                            <>
-                                                <Settings className="mr-2 h-4 w-4 animate-spin"/>
-                                                Updating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Save className="mr-2 h-4 w-4"/>
-                                                Update Password
-                                            </>
+                                ) : (
+                                    <form onSubmit={handlePasswordChange} className="space-y-4">
+                                        {passwordError && (
+                                            <Alert variant="destructive">
+                                                <AlertCircle className="h-4 w-4"/>
+                                                <AlertDescription>{passwordError}</AlertDescription>
+                                            </Alert>
                                         )}
-                                    </Button>
-                                </form>
+                                        {passwordSuccess && (
+                                            <Alert>
+                                                <CheckCircle className="h-4 w-4"/>
+                                                <AlertDescription>Password updated successfully.</AlertDescription>
+                                            </Alert>
+                                        )}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="currentPassword">Current Password</Label>
+                                            <Input
+                                                id="currentPassword"
+                                                type="password"
+                                                value={currentPassword}
+                                                onChange={e => setCurrentPassword(e.target.value)}
+                                                required
+                                                disabled={passwordLoading}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="newPassword">New Password</Label>
+                                            <Input
+                                                id="newPassword"
+                                                type="password"
+                                                value={newPassword}
+                                                onChange={e => setNewPassword(e.target.value)}
+                                                required
+                                                minLength={8}
+                                                disabled={passwordLoading}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                                            <Input
+                                                id="confirmPassword"
+                                                type="password"
+                                                value={confirmPassword}
+                                                onChange={e => setConfirmPassword(e.target.value)}
+                                                required
+                                                disabled={passwordLoading}
+                                            />
+                                        </div>
+                                        <Button type="submit" disabled={passwordLoading}>
+                                            {passwordLoading ? (
+                                                <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Updating…</>
+                                            ) : (
+                                                'Update Password'
+                                            )}
+                                        </Button>
+                                    </form>
+                                )}
 
                                 <div className="mt-6 pt-6 border-t">
                                     <h3 className="text-sm font-medium mb-2">Account Information</h3>

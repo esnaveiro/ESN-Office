@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
             .eq('key', 'board_emails')
             .single()
 
-        const boardEmails = boardSettings?.value as string[] || ['wpa@esnaveiro.org', 'ddias.tc@gmail.com']
+        const boardEmails = boardSettings?.value as string[] || []
 
         try {
             // Format times for email

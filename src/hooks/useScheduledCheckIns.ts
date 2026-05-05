@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabaseClient } from '@/lib/auth-client'
 import type { Database } from '@/lib/database.types'
 
@@ -9,7 +9,7 @@ export function useScheduledCheckIns(volunteerId: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const fetchScheduledCheckIns = async () => {
+  const fetchScheduledCheckIns = useCallback(async () => {
     try {
       setLoading(true)
       console.log('Fetching scheduled check-ins for volunteer:', volunteerId)
@@ -38,7 +38,7 @@ export function useScheduledCheckIns(volunteerId: string) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [volunteerId])
 
   useEffect(() => {
     if (!volunteerId) return
@@ -65,7 +65,7 @@ export function useScheduledCheckIns(volunteerId: string) {
     return () => {
       supabaseClient.removeChannel(channel)
     }
-  }, [volunteerId])
+  }, [volunteerId, fetchScheduledCheckIns])
 
   return {
     scheduledCheckIns,

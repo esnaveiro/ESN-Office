@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -29,12 +29,7 @@ export function LocationPermissionCard({
   const [requesting, setRequesting] = useState(false)
   const [platform, setPlatform] = useState(detectPlatform())
 
-  useEffect(() => {
-    setPlatform(detectPlatform())
-    checkPermission()
-  }, [])
-
-  const checkPermission = async () => {
+  const checkPermission = useCallback(async () => {
     if (!("permissions" in navigator)) {
       setPermissionState("prompt")
       return
@@ -55,7 +50,12 @@ export function LocationPermissionCard({
       // Fallback for browsers that don't support permissions API
       setPermissionState("prompt")
     }
-  }
+  }, [onPermissionGranted])
+
+  useEffect(() => {
+    setPlatform(detectPlatform())
+    checkPermission()
+  }, [checkPermission])
 
   const requestPermission = async () => {
     setRequesting(true)

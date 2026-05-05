@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import {getCurrentLocation} from '@/lib/presence-client'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {MapPin} from 'lucide-react'
+import {OFFICE_ADDRESS} from '@/lib/constants'
 
 interface OfficeLocationMapProps {
     userLocation?: { latitude: number; longitude: number } | null
@@ -67,7 +68,7 @@ export function OfficeLocationMap({userLocation, showUserLocation = false}: Offi
                         Office Location
                     </CardTitle>
                     <CardDescription>
-                        Campus Universitário de Santiago, Aveiro
+                        {OFFICE_ADDRESS}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -87,7 +88,7 @@ export function OfficeLocationMap({userLocation, showUserLocation = false}: Offi
                     Office Location
                 </CardTitle>
                 <CardDescription>
-                    Campus Universitário de Santiago, Aveiro
+                    {OFFICE_ADDRESS}
                 </CardDescription>
             </CardHeader>
             <CardContent>

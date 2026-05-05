@@ -11,7 +11,6 @@ import {SiteHeader} from "@/components/site-header"
 import {CheckInOutButton} from "@/components/check-in-out-button"
 import {PageLoader} from "@/components/page-loader"
 import {PWAInstallCard} from "@/components/pwa-install-card"
-import {getCurrentLocation, type LocationData} from "@/lib/presence-client"
 import {OfficeReservationCalendar} from "@/components/office-reservation-calendar"
 import {MyReservations, type MyReservationsRef} from "@/components/my-reservations"
 
@@ -19,52 +18,17 @@ export default function CheckInsPage() {
     const router = useRouter()
     const {user, volunteer, loading: authLoading, refreshVolunteer} = useRequireAuth()
     const myReservationsRef = useRef<MyReservationsRef>(null)
-    const [autoCheckInOut, setAutoCheckInOut] = useState(false)
-    const [updatingStatus, setUpdatingStatus] = useState(false)
     const [refreshingVolunteer, setRefreshingVolunteer] = useState(false)
     const [signingOut, setSigningOut] = useState(false)
-    const [dismissedLocationCard, setDismissedLocationCard] = useState(false)
     const [dismissedPWACard, setDismissedPWACard] = useState(false)
-    const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null)
 
     // Load settings from localStorage on mount
     useEffect(() => {
-        const saved = localStorage.getItem('autoCheckInOut')
-        if (saved !== null) {
-            setAutoCheckInOut(saved === 'true')
-        }
-
-        const dismissedLocation = localStorage.getItem('dismissedLocationCard')
-        if (dismissedLocation === 'true') {
-            setDismissedLocationCard(true)
-        }
-
         const dismissedPWA = localStorage.getItem('dismissedPWACard')
         if (dismissedPWA === 'true') {
             setDismissedPWACard(true)
         }
     }, [])
-
-    // Save auto check-in setting to localStorage when changed
-    useEffect(() => {
-        localStorage.setItem('autoCheckInOut', String(autoCheckInOut))
-    }, [autoCheckInOut])
-
-    // Get user's current location when checked in with auto check-in enabled
-    useEffect(() => {
-        if (autoCheckInOut && volunteer?.is_in_office) {
-            getCurrentLocation()
-                .then(location => {
-                    setCurrentLocation(location)
-                })
-                .catch(error => {
-                    console.error('Error getting current location:', error)
-                    setCurrentLocation(null)
-                })
-        } else {
-            setCurrentLocation(null)
-        }
-    }, [autoCheckInOut, volunteer?.is_in_office])
 
     const handleRefreshVolunteer = async () => {
         setRefreshingVolunteer(true)

@@ -18,7 +18,7 @@ export async function GET() {
       )
     }
 
-    const boardEmails = data?.value as string[] || ['wpa@esnaveiro.org', 'ddias.tc@gmail.com']
+    const boardEmails = data?.value as string[] || []
 
     return NextResponse.json({ board_emails: boardEmails })
   } catch (error) {
