@@ -44,6 +44,7 @@ Open the Supabase **SQL Editor** and run the following files in order. Each file
 | 1 | `migrations/schema_baseline.sql` | Creates all tables (volunteers, schedules, presence_logs, scheduled_checkins, settings, inventory, office_reservations, board_settings), indexes, RLS policies, triggers, and the `get_current_reservation` function |
 | 2 | `migrations/add_esn_auth.sql` | No-op on a fresh DB (columns already in baseline); idempotent upgrade path for existing DBs |
 | 3 | `migrations/auto_checkout_5am.sql` | Creates the `auto_checkout_5am` scheduled job (runs nightly at 05:00 UTC) |
+| 4 | `migrations/fix_security_warnings.sql` | Enables RLS on `board_settings`; recreates `inventory_with_latest_change` view with `security_invoker` |
 
 Paste the contents of each file into the SQL Editor and click **Run**.
 
