@@ -13,14 +13,14 @@ interface InventoryMapViewProps {
 
 // Map location names to their corresponding areas in the office
 const LOCATION_MAPPING: Record<string, string> = {
-  "Storage (Top Left)": "storage",
-  "Top Right Table": "top-table",
+  "Storage": "storage",
+  "Top Table": "top-table",
   "Left Closet": "left-closet",
   "Right Closet": "right-closet",
   "Left Table": "left-table",
   "Right Table": "right-table",
-  "Couch Area": "couch",
-  "Display (Bottom Right)": "display",
+  "Couch": "couch",
+  "Display": "display",
 }
 
 export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewProps) {
@@ -53,7 +53,7 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
     const items = inventoryByLocation[locationKey] || []
     if (items.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+        <div className="flex flex-1 flex-col items-center justify-center min-h-[400px] text-center">
           <Package className="h-12 w-12 mb-3 text-muted-foreground opacity-50" />
           <p className="text-sm text-muted-foreground">
             No items in this location
@@ -63,14 +63,14 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
     }
 
     return (
-      <div className="space-y-3">
+      <div className="flex flex-1 min-h-0 flex-col space-y-3">
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-primary" />
           <span className="font-medium text-sm">
             {items.length} {items.length === 1 ? 'item' : 'items'}
           </span>
         </div>
-        <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2">
+        <div className="grid grid-cols-1 gap-3 content-start flex-1 min-h-0 max-h-[500px] lg:max-h-none overflow-y-auto pr-2">
           {items.map(item => (
             <div
               key={item.id}
@@ -124,7 +124,7 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
                     'border-muted-foreground/40'
                   }`}
                   style={{ top: '3%', left: '5%', width: '23%', height: '29%' }}
-                  onClick={() => handleLocationClick('storage', 'Storage (Top Left)')}
+                  onClick={() => handleLocationClick('storage', 'Storage')}
                   onMouseEnter={() => setHoveredLocation('storage')}
                   onMouseLeave={() => setHoveredLocation(null)}
                 >
@@ -148,7 +148,7 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
                     'border-muted-foreground/40'
                   }`}
                   style={{ top: '8%', right: '8%', width: '24%', height: '11%' }}
-                  onClick={() => handleLocationClick('top-table', 'Top Right Table')}
+                  onClick={() => handleLocationClick('top-table', 'Top Table')}
                   onMouseEnter={() => setHoveredLocation('top-table')}
                   onMouseLeave={() => setHoveredLocation(null)}
                 >
@@ -295,7 +295,7 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
                     'border-muted-foreground/40'
                   }`}
                   style={{ top: '70%', left: '5%', width: '17%', height: '22%' }}
-                  onClick={() => handleLocationClick('couch', 'Couch Area')}
+                  onClick={() => handleLocationClick('couch', 'Couch')}
                   onMouseEnter={() => setHoveredLocation('couch')}
                   onMouseLeave={() => setHoveredLocation(null)}
                 >
@@ -317,7 +317,7 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
                     'border-muted-foreground/40'
                   }`}
                   style={{ bottom: '1%', right: '8%', width: '35%', height: '15%' }}
-                  onClick={() => handleLocationClick('display', 'Display (Bottom Right)')}
+                  onClick={() => handleLocationClick('display', 'Display')}
                   onMouseEnter={() => setHoveredLocation('display')}
                   onMouseLeave={() => setHoveredLocation(null)}
                 >
@@ -336,7 +336,9 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
           </div>
 
           {/* Inventory Details - Right Side */}
+          {/* h-0 + min-h-full keeps this column from growing the row: it matches the map's height and scrolls inside */}
           <div className="lg:w-1/2">
+            <div className="flex flex-col lg:h-0 lg:min-h-full">
             {selectedLocation ? (
               <>
                 <div className="flex items-center gap-2 mb-4">
@@ -348,13 +350,14 @@ export function InventoryMapView({ inventory, onItemClick }: InventoryMapViewPro
                 {renderInventoryList(selectedLocation)}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+              <div className="flex flex-1 flex-col items-center justify-center min-h-[400px] text-center">
                 <Package className="h-12 w-12 mb-3 text-muted-foreground opacity-50" />
                 <p className="text-sm text-muted-foreground">
                   Select a location on the map to view inventory items
                 </p>
               </div>
             )}
+            </div>
           </div>
         </div>
       </CardContent>
