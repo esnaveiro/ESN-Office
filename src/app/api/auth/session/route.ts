@@ -29,12 +29,14 @@ export async function GET() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return NextResponse.json({ authenticated: false })
 
-      let { data: volunteer, error: volunteerError } = await supabaseServer
+      const { data: initialVolunteer, error: volunteerError } = await supabaseServer
         .from('volunteers')
         .select('id, email, name, is_admin')
         .eq('id', user.id)
         .maybeSingle()
       if (volunteerError) console.error('[session] volunteer lookup failed:', volunteerError.message)
+
+      let volunteer = initialVolunteer
 
       if (!volunteer) {
         // Auto-provision volunteer record on first login
