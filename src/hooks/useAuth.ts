@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabaseClient } from '@/lib/auth-client'
-import { Database } from '@/lib/database.types'
+import {useEffect, useState} from 'react'
+import {useQuery, useQueryClient} from '@tanstack/react-query'
+import {supabaseClient} from '@/lib/auth-client'
+import {AUTH_PROVIDER} from '@/lib/auth-provider'
+import {Database} from '@/lib/database.types'
 
 type Volunteer = Database['public']['Tables']['volunteers']['Row']
 
@@ -15,9 +16,17 @@ interface SessionUser {
 }
 
 async function fetchSession(): Promise<SessionUser | null> {
-  const res = await fetch('/api/auth/session')
-  const data = await res.json()
-  return data.authenticated ? data.user : null
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch('/api/auth/session', {signal: controller.signal})
+    const data = await res.json()
+    return data.authenticated ? data.user : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 async function fetchVolunteer(userId: string): Promise<Volunteer | null> {
@@ -42,8 +51,30 @@ async function fetchVolunteer(userId: string): Promise<Volunteer | null> {
 }
 
 export function useAuth() {
+
   const queryClient = useQueryClient()
   const [sessionChecked, setSessionChecked] = useState(false)
+
+  // For Supabase auth: onAuthStateChange fires immediately with INITIAL_SESSION.
+  // No session → show Sign In right away. Hard 1s fallback covers expired-token case.
+  useEffect(() => {
+
+    if (AUTH_PROVIDER !== 'supabase') return
+
+    const fallback = setTimeout(() => setSessionChecked(true), 1000)
+    const {data: {subscription}} = supabaseClient.auth.onAuthStateChange(
+        (_event, session) => {
+          if (!session) {
+            clearTimeout(fallback)
+            setSessionChecked(true)
+          }
+        }
+    )
+    return () => {
+      clearTimeout(fallback)
+      subscription.unsubscribe()
+    }
+  }, [])
 
   const {
     data: user = null,

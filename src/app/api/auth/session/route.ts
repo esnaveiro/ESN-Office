@@ -29,11 +29,30 @@ export async function GET() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return NextResponse.json({ authenticated: false })
 
-      const { data: volunteer } = await supabaseServer
+      let { data: volunteer, error: volunteerError } = await supabaseServer
         .from('volunteers')
         .select('id, email, name, is_admin')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
+      if (volunteerError) console.error('[session] volunteer lookup failed:', volunteerError.message)
+
+      if (!volunteer) {
+        // Auto-provision volunteer record on first login
+        const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase())
+        const isAdmin = adminEmails.includes(user.email?.toLowerCase() ?? '')
+        const name = (user.user_metadata?.name as string | undefined)
+          || user.email?.split('@')[0]
+          || 'Volunteer'
+
+        const { data: created, error: insertError } = await supabaseServer
+          .from('volunteers')
+          .insert({ id: user.id, name, email: user.email!, is_admin: isAdmin, status: 'available', is_in_office: false })
+          .select('id, email, name, is_admin')
+          .single()
+        if (insertError) console.error('[session] volunteer auto-provision failed:', insertError.message)
+
+        volunteer = created
+      }
 
       if (!volunteer) return NextResponse.json({ authenticated: false })
 
