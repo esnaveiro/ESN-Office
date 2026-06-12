@@ -116,7 +116,7 @@ export default function DashboardPage() {
                                                 <button
                                                     key={badge.id}
                                                     onClick={() => handleBadgeClick(badge)}
-                                                    className="p-4 rounded-lg border bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer text-left"
+                                                    className="p-4 rounded-lg border bg-muted/20 border-primary/20 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer text-left"
                                                 >
                                                     <div className="flex items-start gap-3">
                                                         <div className="p-2 rounded-full bg-primary/20">
