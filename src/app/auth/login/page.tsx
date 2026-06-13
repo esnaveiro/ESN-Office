@@ -72,7 +72,7 @@ function LoginPageInner() {
   const sectionName = process.env.NEXT_PUBLIC_SECTION_NAME ?? 'ESN'
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6 sm:p-8">
       <div className="w-full max-w-md space-y-6">
         <Link
           href="/"

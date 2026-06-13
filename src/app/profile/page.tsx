@@ -179,7 +179,7 @@ function ProfileContent() {
             <div className="min-h-screen bg-background">
                 <EsnRectangles/>
                 <SiteHeader/>
-                <div className="container mx-auto px-4 py-24 max-w-xl">
+                <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-24 max-w-xl">
                     <Card className="p-8">
                         <div className="flex flex-col items-center text-center space-y-4">
                             <div className="p-3 rounded-full bg-destructive/10 text-destructive">
@@ -237,7 +237,7 @@ function ProfileContent() {
         return (
             <div className="min-h-screen bg-background">
                 <SiteHeader/>
-                <div className="container mx-auto px-4 py-24 max-w-xl">
+                <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-24 max-w-xl">
                     <Card className="p-8">
                         <div className="flex flex-col items-center text-center space-y-4">
                             <div className="p-3 rounded-full bg-destructive/10 text-destructive">
@@ -264,12 +264,12 @@ function ProfileContent() {
         <div className="min-h-screen bg-background">
             <SiteHeader/>
 
-            <div className="container mx-auto px-4 py-8 max-w-3xl">
+            <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-8 max-w-3xl">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h1 className="text-3xl font-bold flex items-center gap-2">
-                            <User className="h-8 w-8 text-primary" />
+                        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+                            <User className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
                             {isViewingOtherUser ? 'User Profile' : 'Profile Settings'}
                         </h1>
                         <p className="text-muted-foreground">

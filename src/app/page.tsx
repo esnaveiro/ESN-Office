@@ -202,8 +202,8 @@ export default function HomePage() {
         return (
             <div className="min-h-screen bg-background">
                 <SiteHeader/>
-                <div className="container mx-auto px-4 py-8 max-w-4xl">
-                    <Card className="p-12">
+                <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-8 max-w-4xl">
+                    <Card className="p-6 sm:p-12">
                         <div className="text-center space-y-6">
                             <div className="flex justify-center">
                                 <div className="p-4 bg-destructive/10 rounded-full">
@@ -245,7 +245,7 @@ export default function HomePage() {
         return (
             <div className="min-h-screen bg-background">
                 <SiteHeader/>
-                <div className="container mx-auto px-4 py-8 max-w-6xl space-y-12">
+                <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-8 max-w-6xl space-y-12">
                     {/* Header Skeleton */}
                     <div className="mb-8 space-y-4">
                         <div className="flex items-center gap-4">
@@ -359,7 +359,7 @@ export default function HomePage() {
         <div className="min-h-screen bg-background">
             <SiteHeader/>
 
-            <div className="container mx-auto px-4 py-8 max-w-6xl space-y-6">
+            <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-8 max-w-6xl space-y-6">
                 {/* Office Reserved Banner */}
                 <OfficeReservedBanner/>
 
@@ -368,8 +368,8 @@ export default function HomePage() {
                     {/* Header */}
                     <div className="mb-8">
                         <div className="flex items-center gap-3 mb-2">
-                            <Building2 className="h-12 w-12 text-primary"/>
-                            <h1 className="text-5xl font-bold">ESN Office</h1>
+                            <Building2 className="h-9 w-9 sm:h-12 sm:w-12 text-primary"/>
+                            <h1 className="text-3xl sm:text-5xl font-bold">ESN Office</h1>
                         </div>
                         <p className="text-muted-foreground">
                             Real-time office presence and volunteer availability

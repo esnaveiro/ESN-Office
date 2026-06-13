@@ -373,12 +373,12 @@ export default function InventoryPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-8 max-w-7xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Package className="h-8 w-8 text-primary" />
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Package className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
               Office Inventory
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -388,13 +388,14 @@ export default function InventoryPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
+              className="flex-1 sm:flex-none"
               onClick={handleExport}
               disabled={filteredAndSortedInventory.length === 0}
             >
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </Button>
-            <Button onClick={() => {
+            <Button className="flex-1 sm:flex-none" onClick={() => {
               setEditingItem(null)
               setShowForm(true)
             }}>
@@ -459,13 +460,13 @@ export default function InventoryPage() {
 
               {/* Inventory List Section */}
               <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Package className="h-5 w-5 text-primary" />
                     <h2 className="text-xl font-semibold">Inventory List</h2>
                     <Badge>{filteredAndSortedInventory.length} items</Badge>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {bulkMode && selectedItems.length > 0 && (
                       <Button
                         variant="destructive"

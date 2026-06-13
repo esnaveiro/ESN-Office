@@ -336,7 +336,7 @@ export default function BoardPage() {
         const days = []
         // Add empty cells for days before the month starts
         for (let i = 0; i < startingDayOfWeek; i++) {
-            days.push(<div key={`empty-${i}`} className="min-h-24 border border-transparent"/>)
+            days.push(<div key={`empty-${i}`} className="min-h-16 sm:min-h-24 border border-transparent"/>)
         }
 
         // Add cells for each day of the month
@@ -348,9 +348,9 @@ export default function BoardPage() {
             days.push(
                 <div
                     key={day}
-                    className={`min-h-24 border p-2 ${isToday ? 'bg-primary/5 border-primary/30' : 'border-border'} hover:bg-muted/50 transition-colors`}
+                    className={`min-h-16 sm:min-h-24 border p-1 sm:p-2 ${isToday ? 'bg-primary/5 border-primary/30' : 'border-border'} hover:bg-muted/50 transition-colors`}
                 >
-                    <div className={`text-sm font-medium mb-1 ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <div className={`text-xs sm:text-sm font-medium mb-1 ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
                         {day}
                     </div>
                     <div className="space-y-1">
@@ -361,7 +361,7 @@ export default function BoardPage() {
                                     setSelectedReservation(reservation)
                                     setShowDetailDialog(true)
                                 }}
-                                className="w-full text-left text-xs px-2 py-1 rounded truncate bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 transition-colors"
+                                className="w-full text-left text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded truncate bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 transition-colors"
                             >
                                 {formatTime(reservation.start_time)} {reservation.reserved_by_name}
                             </button>
@@ -374,8 +374,8 @@ export default function BoardPage() {
         return (
             <div className="space-y-4">
                 {/* Calendar Header */}
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold">{monthName}</h2>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-lg sm:text-xl font-semibold">{monthName}</h2>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={previousMonth}>
                             Previous
@@ -518,19 +518,19 @@ export default function BoardPage() {
         <div className="min-h-screen bg-background">
             <SiteHeader/>
 
-            <div className="container mx-auto px-4 py-8 max-w-7xl">
+            <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-8 max-w-7xl">
                 {/* Header */}
-                <div className="mb-8 flex items-start justify-between">
+                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold flex items-center gap-2">
-                            <Calendar className="h-8 w-8 text-primary"/>
+                        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+                            <Calendar className="h-7 w-7 sm:h-8 sm:w-8 text-primary"/>
                             Office Reservations
                         </h1>
                         <p className="text-muted-foreground mt-1">
                             View and manage all office reservations
                         </p>
                     </div>
-                    <Button onClick={exportToCSV} variant="outline" className="gap-2">
+                    <Button onClick={exportToCSV} variant="outline" className="gap-2 w-full sm:w-auto">
                         <Download className="h-4 w-4"/>
                         Export CSV
                     </Button>

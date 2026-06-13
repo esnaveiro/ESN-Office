@@ -52,7 +52,7 @@ function SiteHeaderInner() {
   return (
     <header className="border-b border-border bg-background sticky top-0 z-50">
       <EsnRectangles />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10">
         <div className="flex justify-between items-center py-3">
           {/* Logo */}
           <Link href="/" className="text-xl font-bold flex gap-2 items-center">

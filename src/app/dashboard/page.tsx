@@ -77,10 +77,10 @@ export default function DashboardPage() {
         <div className="min-h-screen bg-background">
             <SiteHeader/>
 
-            <div className="container mx-auto px-4 py-8 max-w-4xl">
+            <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-8 max-w-4xl">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold flex items-center gap-2">
-                        <LayoutDashboard className="h-8 w-8 text-primary"/>
+                    <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+                        <LayoutDashboard className="h-7 w-7 sm:h-8 sm:w-8 text-primary"/>
                         Dashboard
                     </h1>
                     <p className="text-muted-foreground">Your personal stats and achievements</p>

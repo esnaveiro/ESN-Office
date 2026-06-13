@@ -584,12 +584,12 @@ export default function AdminPage() {
         <div className="min-h-screen bg-background">
             <SiteHeader/>
 
-            <div className="container mx-auto px-4 py-8 max-w-7xl">
+            <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-8 max-w-7xl">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h1 className="text-3xl font-bold flex items-center gap-2">
-                            <Shield className="h-8 w-8 text-primary"/>
+                        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+                            <Shield className="h-7 w-7 sm:h-8 sm:w-8 text-primary"/>
                             Admin Panel
                         </h1>
                         <p className="text-muted-foreground">
@@ -617,24 +617,24 @@ export default function AdminPage() {
                 <Tabs defaultValue="checkouts" className="space-y-6">
                     <TabsList className="grid grid-cols-5 w-full">
                         <TabsTrigger value="checkouts">
-                            <LogOut className="h-4 w-4 mr-2"/>
-                            Check-Outs
+                            <LogOut className="h-4 w-4 sm:mr-2"/>
+                            <span className="hidden sm:inline">Check-Outs</span>
                         </TabsTrigger>
                         <TabsTrigger value="accounts">
-                            <Users className="h-4 w-4 mr-2"/>
-                            Accounts
+                            <Users className="h-4 w-4 sm:mr-2"/>
+                            <span className="hidden sm:inline">Accounts</span>
                         </TabsTrigger>
                         <TabsTrigger value="logs">
-                            <History className="h-4 w-4 mr-2"/>
-                            Logs
+                            <History className="h-4 w-4 sm:mr-2"/>
+                            <span className="hidden sm:inline">Logs</span>
                         </TabsTrigger>
                         <TabsTrigger value="board">
-                            <Mail className="h-4 w-4 mr-2"/>
-                            Board
+                            <Mail className="h-4 w-4 sm:mr-2"/>
+                            <span className="hidden sm:inline">Board</span>
                         </TabsTrigger>
                         <TabsTrigger value="settings">
-                            <SettingsIcon className="h-4 w-4 mr-2"/>
-                            Settings
+                            <SettingsIcon className="h-4 w-4 sm:mr-2"/>
+                            <span className="hidden sm:inline">Settings</span>
                         </TabsTrigger>
                     </TabsList>
 
@@ -643,7 +643,7 @@ export default function AdminPage() {
                         {/* Stats Card */}
                         <Card>
                             <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex items-center gap-4">
                                         <div className="p-3 rounded-full bg-primary/10">
                                             <Users className="h-6 w-6 text-primary"/>
