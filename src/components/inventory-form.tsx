@@ -19,15 +19,14 @@ interface InventoryFormProps {
 }
 
 const OFFICE_LOCATIONS = [
-  "Storage (Top Left)",
-  "Top Right Table",
+  "Storage",
+  "Top Table",
   "Left Closet",
   "Right Closet",
   "Left Table",
   "Right Table",
-  "Couch Area",
-  "Display (Bottom Right)",
-  "Entrance Area",
+  "Display",
+  "Couch",
   "Other"
 ]
 

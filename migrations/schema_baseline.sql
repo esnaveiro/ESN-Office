@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS public.volunteers (
   is_admin boolean NOT NULL DEFAULT false
 );
 
+-- Add columns to existing tables if they were created without them
+ALTER TABLE public.volunteers ADD COLUMN IF NOT EXISTS esn_sub  text UNIQUE;
+ALTER TABLE public.volunteers ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
+
 ALTER TABLE public.volunteers ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Volunteers are viewable by everyone"
@@ -154,6 +158,9 @@ CREATE TABLE IF NOT EXISTS public.inventory (
   created_at timestamptz DEFAULT now() NOT NULL,
   updated_at timestamptz DEFAULT now() NOT NULL
 );
+
+-- Add columns to existing tables if they were created without them
+ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS low_stock_threshold integer;
 
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 

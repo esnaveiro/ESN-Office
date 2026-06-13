@@ -16,13 +16,8 @@ export function signInWithESN() {
 // ── Supabase email/password ────────────────────────────────────────────────
 
 export async function signInWithEmail(email: string, password: string): Promise<void> {
-  const res = await fetch('/api/auth/supabase?action=login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Login failed')
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password })
+  if (error) throw error
 }
 
 export async function signUpWithEmail(email: string, password: string, name: string): Promise<void> {
